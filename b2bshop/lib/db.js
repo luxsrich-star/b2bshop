@@ -1,8 +1,14 @@
 import fs from "fs";
 import path from "path";
+import { v2 as cloudinary } from "cloudinary";
 
 const DATA = path.join(process.cwd(), "data");
-const PUB  = path.join(process.cwd(), "public", "uploads");
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 function ensure(dir) {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -89,16 +95,17 @@ export function saveShopOrders(slug, data) {
 }
 
 // ─── image save ───────────────────────────────────────────────────────────────
-export function saveBase64Image(base64) {
+export async function saveBase64Image(base64) {
   if (!base64 || !base64.startsWith("data:")) return null;
-  const m = base64.match(/^data:(.+);base64,(.+)$/);
-  if (!m) return null;
-  const ext = m[1].split("/")[1] || "jpg";
-  const { v4: uuidv4 } = require("uuid");
-  const filename = uuidv4() + "." + ext;
-  ensure(PUB);
-  fs.writeFileSync(path.join(PUB, filename), Buffer.from(m[2], "base64"));
-  return "/uploads/" + filename;
+  try {
+    const result = await cloudinary.uploader.upload(base64, {
+      folder: "b2bshop",
+    });
+    return result.secure_url;
+  } catch (err) {
+    console.error("Cloudinary upload failed:", err);
+    return null;
+  }
 }
 
 // ─── merged products for shop (base + overrides) ─────────────────────────────

@@ -3,7 +3,7 @@ import { v4 as uuid } from "uuid";
 
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method === "GET") return res.json(getCatalog());
 
   const catalog = getCatalog();
@@ -20,7 +20,7 @@ export default function handler(req, res) {
     }
 
     if (action === "addProduct") {
-      const imgUrl = saveBase64Image(req.body.img);
+      const imgUrl = await saveBase64Image(req.body.img);
       const prod = {
         id: uuid(),
         categoryId: req.body.categoryId,
@@ -44,7 +44,7 @@ export default function handler(req, res) {
       if (idx === -1) return res.status(404).end();
       let imgUrl = catalog.products[idx].img;
       if (req.body.img === null) imgUrl = null;
-      else if (req.body.img?.startsWith("data:")) imgUrl = saveBase64Image(req.body.img);
+      else if (req.body.img?.startsWith("data:")) imgUrl = await saveBase64Image(req.body.img);
       catalog.products[idx] = { ...catalog.products[idx], ...req.body, img: imgUrl };
       saveCatalog(catalog);
       return res.json(catalog.products[idx]);
