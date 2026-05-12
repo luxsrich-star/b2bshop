@@ -278,43 +278,50 @@ export default function ShopPage() {
       {cartOpen && (
         <div style={{ position:"fixed",inset:0,background:"rgba(0,0,0,0.42)",zIndex:100,display:"flex",alignItems:"flex-end" }}
           onClick={e=>e.target===e.currentTarget&&setCartOpen(false)}>
-          <div className="bottom-sheet">
+          <div style={{ background:"#fff",width:"100%",maxHeight:"85vh",borderRadius:"20px 20px 0 0",display:"flex",flexDirection:"column",boxShadow:"0 -8px 40px rgba(0,0,0,0.12)",animation:"slideUp .28s cubic-bezier(0.4,0,0.2,1) both" }}>
+            <style>{`@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
             {/* CART */}
             {checkoutStep==="cart" && (
               <>
-                <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16 }}>
-                  <div style={{ fontSize:16,fontWeight:700 }}>Корзина</div>
-                  <button onClick={()=>setCartOpen(false)} style={{ background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:18 }}>✕</button>
+                <div style={{ padding:"18px 20px 12px",borderBottom:"1px solid #f0f0f0",flexShrink:0 }}>
+                  <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center" }}>
+                    <div style={{ fontSize:16,fontWeight:700 }}>Корзина</div>
+                    <button onClick={()=>setCartOpen(false)} style={{ background:"none",border:"none",color:"#aaa",cursor:"pointer",fontSize:18 }}>✕</button>
+                  </div>
                 </div>
                 {cart.length===0
-                  ? <div style={{ color:"#bbb",textAlign:"center",padding:"30px 0",fontSize:13 }}>Корзина пуста</div>
+                  ? <div style={{ color:"#bbb",textAlign:"center",padding:"30px 0",fontSize:13,flex:1 }}>Корзина пуста</div>
                   : <>
-                    {cart.map(item=>(
-                      <div key={item.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid #f0f0f0" }}>
-                        <div style={{ flex:1,paddingRight:8 }}>
-                          <div style={{ fontSize:13,fontWeight:500 }}>{item.name}</div>
-                          <div style={{ fontSize:11,color:"#aaa" }}>{item.price} ₽/шт</div>
-                        </div>
-                        <div style={{ display:"flex",alignItems:"center",gap:8 }}>
-                          <div style={{ display:"flex",alignItems:"center",gap:6,border:"1px solid #e5e5e5",borderRadius:8,padding:"4px 8px" }}>
-                            <button onClick={()=>chQty(item.id,-1)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#333" }}>−</button>
-                            <span style={{ fontSize:13,minWidth:18,textAlign:"center" }}>{item.qty}</span>
-                            <button onClick={()=>chQty(item.id,1)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#333" }}>+</button>
+                    <div style={{ overflowY:"auto",flex:1,padding:"0 20px" }}>
+                      {cart.map(item=>(
+                        <div key={item.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid #f0f0f0" }}>
+                          <div style={{ flex:1,paddingRight:8 }}>
+                            <div style={{ fontSize:13,fontWeight:500 }}>{item.name}</div>
+                            <div style={{ fontSize:11,color:"#aaa" }}>{item.price} ₽/шт</div>
                           </div>
-                          <div style={{ fontSize:13,fontWeight:600,minWidth:60,textAlign:"right" }}>{item.qty*item.price} ₽</div>
-                          <button onClick={()=>setCart(c=>c.filter(i=>i.id!==item.id))} style={{ background:"none",border:"none",color:"#ccc",cursor:"pointer",display:"flex" }}>{IC.trash}</button>
+                          <div style={{ display:"flex",alignItems:"center",gap:8 }}>
+                            <div style={{ display:"flex",alignItems:"center",gap:6,border:"1px solid #e5e5e5",borderRadius:8,padding:"4px 8px" }}>
+                              <button onClick={()=>chQty(item.id,-1)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#333" }}>−</button>
+                              <span style={{ fontSize:13,minWidth:18,textAlign:"center" }}>{item.qty}</span>
+                              <button onClick={()=>chQty(item.id,1)} style={{ background:"none",border:"none",cursor:"pointer",fontSize:16,color:"#333" }}>+</button>
+                            </div>
+                            <div style={{ fontSize:13,fontWeight:600,minWidth:60,textAlign:"right" }}>{item.qty*item.price} ₽</div>
+                            <button onClick={()=>setCart(c=>c.filter(i=>i.id!==item.id))} style={{ background:"none",border:"none",color:"#ccc",cursor:"pointer",display:"flex" }}>{IC.trash}</button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                    <div style={{ display:"flex",justifyContent:"space-between",marginTop:14 }}>
-                      <span style={{ fontSize:14,fontWeight:600 }}>Итого</span>
-                      <span style={{ fontSize:16,fontWeight:700 }}>{cartTotal} ₽</span>
+                      ))}
                     </div>
-                    <button onClick={()=>setCheckoutStep("form")}
-                      style={{ width:"100%",background:"#000",color:"#fff",border:"none",borderRadius:10,padding:14,fontSize:14,fontWeight:600,cursor:"pointer",marginTop:14 }}>
-                      Оформить заказ
-                    </button>
+                    <div style={{ padding:"14px 20px 32px",borderTop:"1px solid #f0f0f0",flexShrink:0,background:"#fff" }}>
+                      <div style={{ display:"flex",justifyContent:"space-between",marginBottom:12 }}>
+                        <span style={{ fontSize:14,fontWeight:600 }}>Итого</span>
+                        <span style={{ fontSize:16,fontWeight:700 }}>{cartTotal} ₽</span>
+                      </div>
+                      <button onClick={()=>setCheckoutStep("form")}
+                        style={{ width:"100%",background:"#000",color:"#fff",border:"none",borderRadius:12,padding:16,fontSize:15,fontWeight:700,cursor:"pointer" }}>
+                        Оформить заказ
+                      </button>
+                    </div>
                   </>
                 }
               </>
