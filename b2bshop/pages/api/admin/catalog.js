@@ -3,11 +3,12 @@ import { v4 as uuid } from "uuid";
 
 export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
 
-export default async function handler(req, res) {
+export default function handler(req, res) {
   if (req.method === "GET") return res.json(getCatalog());
 
   const catalog = getCatalog();
 
+  // POST /api/admin/catalog?action=addCategory
   if (req.method === "POST") {
     const { action } = req.query;
 
@@ -19,7 +20,7 @@ export default async function handler(req, res) {
     }
 
     if (action === "addProduct") {
-      const imgUrl = await saveBase64Image(req.body.img);
+      const imgUrl = saveBase64Image(req.body.img);
       const prod = {
         id: uuid(),
         categoryId: req.body.categoryId,
@@ -37,12 +38,13 @@ export default async function handler(req, res) {
 
   if (req.method === "PUT") {
     const { action, id } = req.query;
+
     if (action === "updateProduct") {
       const idx = catalog.products.findIndex(p => p.id === id);
       if (idx === -1) return res.status(404).end();
       let imgUrl = catalog.products[idx].img;
       if (req.body.img === null) imgUrl = null;
-      else if (req.body.img?.startsWith("data:")) imgUrl = await saveBase64Image(req.body.img);
+      else if (req.body.img?.startsWith("data:")) imgUrl = saveBase64Image(req.body.img);
       catalog.products[idx] = { ...catalog.products[idx], ...req.body, img: imgUrl };
       saveCatalog(catalog);
       return res.json(catalog.products[idx]);
@@ -51,6 +53,7 @@ export default async function handler(req, res) {
 
   if (req.method === "DELETE") {
     const { action, id } = req.query;
+
     if (action === "deleteCategory") {
       const toDelete = [];
       const q = [id];
@@ -63,6 +66,7 @@ export default async function handler(req, res) {
       saveCatalog(catalog);
       return res.json({ deleted: toDelete });
     }
+
     if (action === "deleteProduct") {
       catalog.products = catalog.products.filter(p => p.id !== id);
       saveCatalog(catalog);

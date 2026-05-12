@@ -9,40 +9,46 @@ export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
 
 function shopExists(slug) { return !!getShops().find(s => s.slug === slug); }
 
-export default async function handler(req, res) {
+export default function handler(req, res) {
   const { slug, action } = req.query;
   if (!shopExists(slug)) return res.status(404).json({ error: "Магазин не найден" });
 
+  // GET all data for seller panel
   if (req.method === "GET") {
-    return res.json({
-      settings: getShopSettings(slug),
-      prices:   getShopPrices(slug),
-      orders:   getShopOrders(slug),
-      catalog:  getCatalog(),
-    });
+    const settings = getShopSettings(slug);
+    const prices   = getShopPrices(slug);
+    const orders   = getShopOrders(slug);
+    const catalog  = getCatalog();
+    return res.json({ settings, prices, orders, catalog });
   }
 
+  // POST action=saveSettings
   if (req.method === "POST" && action === "saveSettings") {
     const current = getShopSettings(slug);
     let logoImg = current.logoImg;
     if (req.body.logoImg === null) logoImg = null;
-    else if (req.body.logoImg?.startsWith("data:")) logoImg = await saveBase64Image(req.body.logoImg);
+    else if (req.body.logoImg?.startsWith("data:")) logoImg = saveBase64Image(req.body.logoImg);
     const updated = { ...current, ...req.body, logoImg };
     saveShopSettings(slug, updated);
     return res.json(updated);
   }
 
+  // POST action=savePrices  body: { productId, price, stock, hidden }
   if (req.method === "POST" && action === "savePrice") {
     const prices = getShopPrices(slug);
     const { productId, price, stock, hidden } = req.body;
-    prices[productId] = {};
-    if (price  !== undefined) prices[productId].price  = Number(price);
-    if (stock  !== undefined) prices[productId].stock  = Number(stock);
-    if (hidden !== undefined) prices[productId].hidden = Boolean(hidden);
+    prices[productId] = {
+      price:  price  !== undefined ? Number(price)  : undefined,
+      stock:  stock  !== undefined ? Number(stock)  : undefined,
+      hidden: hidden !== undefined ? Boolean(hidden) : undefined,
+    };
+    // remove undefined keys
+    Object.keys(prices[productId]).forEach(k => prices[productId][k] === undefined && delete prices[productId][k]);
     saveShopPrices(slug, prices);
     return res.json({ ok: true });
   }
 
+  // POST action=createOrder
   if (req.method === "POST" && action === "createOrder") {
     const orders = getShopOrders(slug);
     const id = orders.length > 0 ? Math.max(...orders.map(o => o.id)) + 1 : 1;
@@ -60,6 +66,7 @@ export default async function handler(req, res) {
     return res.json(order);
   }
 
+  // PUT action=updateOrder
   if (req.method === "PUT" && action === "updateOrder") {
     const { id } = req.body;
     const orders = getShopOrders(slug);
