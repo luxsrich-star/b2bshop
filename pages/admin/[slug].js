@@ -39,7 +39,11 @@ export default function SellerPanel() {
 
   useEffect(() => {
     if (!slug) return;
-    if (sessionStorage.getItem("sellerauth_"+slug)==="1") { setAuthed(true); loadData(); }
+    // Security: check session via httpOnly cookie (not sessionStorage)
+    fetch(`/api/admin/me?type=shop&slug=${encodeURIComponent(slug)}`)
+      .then(r => r.json())
+      .then(d => { if (d.authed) { setAuthed(true); loadData(); } })
+      .catch(() => {});
   }, [slug]);
 
   async function loadData() {
@@ -55,7 +59,8 @@ export default function SellerPanel() {
       method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({ slug, password: pass })
     });
-    if (r.ok) { sessionStorage.setItem("sellerauth_"+slug,"1"); setAuthed(true); loadData(); }
+    // Security: session cookie is set by the server — no sessionStorage needed
+    if (r.ok) { setAuthed(true); loadData(); }
     else { const d=await r.json(); setPassErr(d.error||"Неверный пароль"); }
   }
 
@@ -198,8 +203,11 @@ export default function SellerPanel() {
         </div>
         <div style={{ display:"flex",gap:8 }}>
           <a href={`/shop/${slug}`} target="_blank" style={{ background:"none",border:"1px solid #e5e5e5",borderRadius:7,padding:"6px 10px",fontSize:11,cursor:"pointer",display:"flex",alignItems:"center",gap:5,textDecoration:"none",color:"#555" }}>{IC.eye} Витрина</a>
-          <button onClick={()=>{ sessionStorage.removeItem("sellerauth_"+slug); setAuthed(false); }}
-            style={{ background:"none",border:"none",fontSize:11,color:"#bbb",cursor:"pointer" }}>Выйти</button>
+          <button onClick={async()=>{
+            // Security: clear httpOnly cookie via server endpoint
+            await fetch(`/api/admin/logout?type=shop&slug=${encodeURIComponent(slug)}`, { method:"POST" });
+            setAuthed(false);
+          }} style={{ background:"none",border:"none",fontSize:11,color:"#bbb",cursor:"pointer" }}>Выйти</button>
         </div>
       </div>
 
