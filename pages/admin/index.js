@@ -24,14 +24,19 @@ export default function SuperAdmin() {
   const imgRef = typeof window !== "undefined" ? null : null;
 
   useEffect(() => {
-    const a = sessionStorage.getItem("superauth");
-    if (a === "1") { setAuthed(true); load(); }
+    // Security: check session via httpOnly cookie (not sessionStorage)
+    // The cookie is sent automatically by the browser; we just ask the server
+    fetch("/api/admin/me?type=super")
+      .then(r => r.json())
+      .then(d => { if (d.authed) { setAuthed(true); load(); } })
+      .catch(() => {});
   }, []);
 
   async function login() {
     setPassErr("");
     const r = await fetch("/api/admin/login", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ password: pass }) });
-    if (r.ok) { sessionStorage.setItem("superauth","1"); setAuthed(true); load(); }
+    // Security: session cookie is set by the server — no sessionStorage needed
+    if (r.ok) { setAuthed(true); load(); }
     else setPassErr("Неверный пароль");
   }
 
@@ -145,7 +150,11 @@ export default function SuperAdmin() {
           <div style={{ width:32,height:32,background:"#000",borderRadius:8,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:11,fontWeight:800 }}>SA</div>
           <span style={{ fontSize:13,fontWeight:700 }}>Super Admin</span>
         </div>
-        <button onClick={()=>{sessionStorage.removeItem("superauth");setAuthed(false);}} style={{ ...btn("none","#aaa"),fontSize:11 }}>Выйти</button>
+        <button onClick={async()=>{
+          // Security: clear httpOnly cookie via server endpoint
+          await fetch("/api/admin/logout?type=super", { method:"POST" });
+          setAuthed(false);
+        }} style={{ ...btn("none","#aaa"),fontSize:11 }}>Выйти</button>
       </div>
 
       {/* Tabs */}
@@ -188,7 +197,7 @@ export default function SuperAdmin() {
                     </div>
                     <div>
                       <div style={{ fontSize:13,fontWeight:700 }}>{shop.name}</div>
-                      <div style={{ fontSize:11,color:"#aaa" }}>/shop/{shop.slug} · пароль: {shop.password}</div>
+                      <div style={{ fontSize:11,color:"#aaa" }}>/shop/{shop.slug}</div>
                     </div>
                     {shop.blocked && <span style={{ background:"#fee",color:"#e00",fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:99 }}>БЛОК</span>}
                   </div>
