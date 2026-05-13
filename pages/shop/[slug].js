@@ -58,9 +58,14 @@ function ProductCard({ p, qty, setQty, onAdd }) {
   const out = p.stock === 0;
   return (
     <div className="card-hover" style={{ border:"1px solid #e5e5e5",borderRadius:12,overflow:"hidden",display:"flex",flexDirection:"column",background:"#fff" }}>
-      <div style={{ background:"#f5f5f5",height:130,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0,color:"#ccc" }}>
-        {p.img ? <img src={p.img} alt={p.name} style={{ width:"100%",height:"100%",objectFit:"cover" }}/> :
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
+      <div style={{ background:"#f0f0f0",height:130,display:"flex",alignItems:"center",justifyContent:"center",overflow:"hidden",flexShrink:0,color:"#ccc",position:"relative" }}>
+        {p.img
+          ? <img src={p.img} alt={p.name} loading="lazy"
+              style={{ width:"100%",height:"100%",objectFit:"cover",transition:"opacity 0.3s" }}
+              onLoad={e=>e.target.style.opacity=1}
+              onError={e=>{ e.target.style.display="none"; }}
+            />
+          : <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>}
       </div>
       <div style={{ padding:"10px 10px 12px",flex:1,display:"flex",flexDirection:"column" }}>
         <div style={{ fontSize:12,fontWeight:600,marginBottom:2,lineHeight:1.3 }}>{p.name}</div>
