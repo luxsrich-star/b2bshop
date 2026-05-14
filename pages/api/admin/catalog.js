@@ -10,25 +10,15 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     const { action } = req.query;
-
     if (action === "addCategory") {
       const cat = { id: uuid(), name: req.body.name, parentId: req.body.parentId || null };
       catalog.categories.push(cat);
       saveCatalog(catalog);
       return res.json(cat);
     }
-
     if (action === "addProduct") {
       const imgUrl = await saveBase64Image(req.body.img);
-      const prod = {
-        id: uuid(),
-        categoryId: req.body.categoryId,
-        name: req.body.name,
-        basePrice: Number(req.body.basePrice),
-        img: imgUrl,
-        hidden: false,
-        stock: Number(req.body.stock) || 0,
-      };
+      const prod = { id: uuid(), categoryId: req.body.categoryId, name: req.body.name, basePrice: Number(req.body.basePrice), img: imgUrl, hidden: false, stock: Number(req.body.stock) || 0 };
       catalog.products.push(prod);
       saveCatalog(catalog);
       return res.json(prod);
@@ -37,6 +27,13 @@ export default async function handler(req, res) {
 
   if (req.method === "PUT") {
     const { action, id } = req.query;
+    if (action === "updateCategory") {
+      const idx = catalog.categories.findIndex(c => c.id === id);
+      if (idx === -1) return res.status(404).end();
+      catalog.categories[idx] = { ...catalog.categories[idx], ...req.body };
+      saveCatalog(catalog);
+      return res.json(catalog.categories[idx]);
+    }
     if (action === "updateProduct") {
       const idx = catalog.products.findIndex(p => p.id === id);
       if (idx === -1) return res.status(404).end();
@@ -52,12 +49,8 @@ export default async function handler(req, res) {
   if (req.method === "DELETE") {
     const { action, id } = req.query;
     if (action === "deleteCategory") {
-      const toDelete = [];
-      const q = [id];
-      while (q.length) {
-        const cid = q.shift(); toDelete.push(cid);
-        catalog.categories.filter(c => c.parentId === cid).forEach(c => q.push(c.id));
-      }
+      const toDelete = []; const q = [id];
+      while (q.length) { const cid = q.shift(); toDelete.push(cid); catalog.categories.filter(c => c.parentId === cid).forEach(c => q.push(c.id)); }
       catalog.categories = catalog.categories.filter(c => !toDelete.includes(c.id));
       catalog.products   = catalog.products.filter(p => !toDelete.includes(p.categoryId));
       saveCatalog(catalog);
@@ -69,6 +62,5 @@ export default async function handler(req, res) {
       return res.json({ ok: true });
     }
   }
-
   res.status(405).end();
 }
