@@ -1,0 +1,143 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; scroll-behavior: smooth; }
+body {
+  font-family: 'DM Sans','Helvetica Neue',Arial,sans-serif;
+  background: #f5f5f7;
+  color: #111;
+  -webkit-font-smoothing: antialiased;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── animations ── */
+@keyframes fadeUp   { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+@keyframes fadeIn   { from{opacity:0} to{opacity:1} }
+@keyframes slideUp  { from{transform:translateY(100%)} to{transform:translateY(0)} }
+@keyframes slideInR { from{transform:translateX(100%);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes slideInL { from{transform:translateX(-100%);opacity:0} to{transform:translateX(0);opacity:1} }
+@keyframes slideOutL{ from{transform:translateX(0);opacity:1} to{transform:translateX(-100%);opacity:0} }
+@keyframes slideOutR{ from{transform:translateX(0);opacity:1} to{transform:translateX(100%);opacity:0} }
+@keyframes scaleIn  { from{opacity:0;transform:scale(0.96)} to{opacity:1;transform:scale(1)} }
+
+.anim-fade-up   { animation: fadeUp  0.28s cubic-bezier(0.4,0,0.2,1) both; }
+.anim-fade-in   { animation: fadeIn  0.2s ease both; }
+.anim-scale-in  { animation: scaleIn 0.22s cubic-bezier(0.4,0,0.2,1) both; }
+.tab-panel      { animation: fadeUp  0.24s cubic-bezier(0.4,0,0.2,1) both; }
+
+.bottom-sheet {
+  background: #fff;
+  width: 100%;
+  max-height: 88vh;
+  border-radius: 24px 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -8px 40px rgba(0,0,0,0.13);
+  animation: slideUp 0.3s cubic-bezier(0.4,0,0.2,1) both;
+}
+
+/* ── cards ── */
+.card {
+  background: #fff;
+  border: 1px solid #ebebeb;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.10);
+  border-color: #d0d0d0;
+}
+.card-active { border-color: #111 !important; }
+
+/* ── horizontal scroll row ── */
+.hscroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 4px 20px 12px;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.hscroll::-webkit-scrollbar { display: none; }
+.hscroll > * { scroll-snap-align: start; flex-shrink: 0; }
+
+/* ── inputs / selects ── */
+input, select, textarea {
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  background: #fff;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: #111;
+  box-shadow: 0 0 0 3px rgba(0,0,0,0.06);
+}
+
+/* ── buttons ── */
+.btn-primary {
+  background: #111;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-primary:hover  { background: #222; box-shadow: 0 4px 16px rgba(0,0,0,0.18); }
+.btn-primary:active { transform: scale(0.97); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-ghost {
+  background: none;
+  color: #555;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.15s ease, background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.btn-ghost:hover { border-color: #aaa; background: #f8f8f8; }
+
+.btn-danger {
+  background: none;
+  color: #d00;
+  border: 1.5px solid #fcc;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.btn-danger:hover { background: #fff0f0; }
+
+/* ── scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+/* ── misc ── */
+a { text-decoration: none; color: inherit; }
+button, input[type="file"] { font-family: inherit; }
