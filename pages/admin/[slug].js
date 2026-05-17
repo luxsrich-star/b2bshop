@@ -333,20 +333,7 @@ export default function SellerPanel() {
 
         {/* PRICES */}
         {tab==="prices"&&settings.useSharedCatalog&&(
-          <div>
-            <div style={{fontSize:11,color:"#aaa",fontWeight:700,letterSpacing:"0.5px",marginBottom:10}}>ЦЕНЫ И ОСТАТКИ ДЛЯ ЭТОГО МАГАЗИНА</div>
-            <div style={{display:"flex",flexDirection:"column",gap:7}}>
-              {data.sharedCatalog.products.map(p=>{
-                const ov=data.prices[p.id]||{};
-                const shopPrice=ov.price!==undefined?ov.price:p.basePrice;
-                const shopStock=ov.stock!==undefined?ov.stock:(p.stock||0);
-                const shopHidden=ov.hidden!==undefined?ov.hidden:false;
-                const cat=data.sharedCatalog.categories.find(c=>c.id===p.categoryId);
-                return<PriceRow key={p.id} p={p} shopPrice={shopPrice} shopStock={shopStock} shopHidden={shopHidden} catName={cat?.name||"—"} onSave={savePrice}/>;
-              })}
-              {data.sharedCatalog.products.length===0&&<div style={{color:"#ccc",textAlign:"center",padding:"30px 0",fontSize:13}}>Нет товаров</div>}
-            </div>
-          </div>
+          <PricesTab products={data.sharedCatalog.products} categories={data.sharedCatalog.categories} prices={data.prices} onSave={savePrice}/>
         )}
 
         {/* ORDERS */}
@@ -429,39 +416,151 @@ export default function SellerPanel() {
   );
 }
 
-function PriceRow({p,shopPrice,shopStock,shopHidden,catName,onSave}){
-  const [price,setPrice]=useState(String(shopPrice));
-  const [stock,setStock]=useState(String(shopStock));
-  const [hidden,setHidden]=useState(shopHidden);
-  const [saved,setSaved]=useState(false);
-  const changed=Number(price)!==shopPrice||Number(stock)!==shopStock||hidden!==shopHidden;
-  async function save(){await onSave(p.id,Number(price),Number(stock),hidden);setSaved(true);setTimeout(()=>setSaved(false),1600);}
-  return(
-    <div style={{background:"#fff",border:"1px solid #ebebeb",borderRadius:12,boxShadow:"0 2px 8px rgba(0,0,0,0.04)",padding:"9px 11px",display:"flex",alignItems:"center",gap:9,flexWrap:"wrap"}}>
-      <div style={{width:40,height:40,borderRadius:10,overflow:"hidden",background:"#f5f5f5",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
-        {p.img?<img src={p.img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{opacity:0.25}}><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>}
+// ── PricesTab: sortable list with inline +/- and auto-save ──────────────────
+function PricesTab({products, categories, prices, onSave}) {
+  const [order, setOrder] = useState(() => products.map(p => p.id));
+  const [rows, setRows]   = useState(() =>
+    products.reduce((acc, p) => {
+      const ov = prices[p.id] || {};
+      acc[p.id] = {
+        price:  ov.price  !== undefined ? ov.price  : p.basePrice,
+        stock:  ov.stock  !== undefined ? ov.stock  : (p.stock || 0),
+        hidden: ov.hidden !== undefined ? ov.hidden : false,
+      };
+      return acc;
+    }, {})
+  );
+  const [saved, setSaved]     = useState({});
+  const timers                = useRef({});
+  const dragId                = useRef(null);
+  const dragOver              = useRef(null);
+
+  // sync when products change
+  useEffect(() => {
+    setOrder(products.map(p => p.id));
+    setRows(products.reduce((acc, p) => {
+      const ov = prices[p.id] || {};
+      acc[p.id] = {
+        price:  ov.price  !== undefined ? ov.price  : p.basePrice,
+        stock:  ov.stock  !== undefined ? ov.stock  : (p.stock || 0),
+        hidden: ov.hidden !== undefined ? ov.hidden : false,
+      };
+      return acc;
+    }, {}));
+  }, [products.length]);
+
+  function autoSave(id, newRow) {
+    clearTimeout(timers.current[id]);
+    timers.current[id] = setTimeout(async () => {
+      await onSave(id, newRow.price, newRow.stock, newRow.hidden);
+      setSaved(s => ({...s, [id]: true}));
+      setTimeout(() => setSaved(s => ({...s, [id]: false})), 1400);
+    }, 800);
+  }
+
+  function update(id, field, value) {
+    const newRow = {...rows[id], [field]: value};
+    setRows(r => ({...r, [id]: newRow}));
+    autoSave(id, newRow);
+  }
+
+  // drag-and-drop handlers
+  function onDragStart(e, id) { dragId.current = id; e.dataTransfer.effectAllowed = "move"; }
+  function onDragOver(e, id)  { e.preventDefault(); dragOver.current = id; }
+  function onDrop(e, id) {
+    e.preventDefault();
+    if (!dragId.current || dragId.current === id) return;
+    const from = order.indexOf(dragId.current);
+    const to   = order.indexOf(id);
+    const next = [...order];
+    next.splice(from, 1);
+    next.splice(to, 0, dragId.current);
+    setOrder(next);
+    dragId.current  = null;
+    dragOver.current = null;
+  }
+
+  const sorted = order.map(id => products.find(p => p.id === id)).filter(Boolean);
+
+  return (
+    <div>
+      <div style={{fontSize:11,color:"#aaa",fontWeight:700,letterSpacing:"0.5px",marginBottom:10}}>
+        ЦЕНЫ И ОСТАТКИ — перетащи за ⠿ чтобы изменить порядок
       </div>
-      <div style={{flex:1,minWidth:100}}>
-        <div style={{fontSize:12,fontWeight:600}}>{p.name}</div>
-        <div style={{fontSize:10,color:"#bbb"}}>{catName} · база: {p.basePrice} ₽ · в каталоге: {p.stock} шт</div>
-      </div>
-      <div style={{display:"flex",gap:5,alignItems:"flex-end",flexWrap:"wrap"}}>
-        {[["Цена ₽",price,setPrice,68],["Остаток",stock,setStock,56]].map(([label,val,setter,w])=>(
-          <div key={label} style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
-            <div style={{fontSize:10,color:"#aaa"}}>{label}</div>
-            <input value={val} onChange={e=>setter(e.target.value)} type="number"
-              style={{width:w,textAlign:"center",padding:"5px 6px",borderRadius:8,border:"1.5px solid #e0e0e0",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
-          </div>
-        ))}
-        <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
-          <div style={{fontSize:10,color:"#aaa"}}>Скрыть</div>
-          <input type="checkbox" checked={hidden} onChange={e=>setHidden(e.target.checked)} style={{width:15,height:15,accentColor:"#111",cursor:"pointer"}}/>
-        </div>
-        <button onClick={save}
-          style={{background:saved?"#16a34a":changed?"#111":"#f0f0f0",color:saved||changed?"#fff":"#aaa",border:"none",borderRadius:10,padding:"7px 11px",fontSize:11,fontWeight:600,cursor:"pointer",transition:"background .2s",marginTop:14,fontFamily:"inherit"}}>
-          {saved?"✓":"Сохр."}
-        </button>
+      {/* scrollable container */}
+      <div style={{maxHeight:"calc(100vh - 240px)",overflowY:"auto",display:"flex",flexDirection:"column",gap:7,paddingRight:2}}>
+        {sorted.map(p => {
+          const row = rows[p.id] || {};
+          const cat = categories.find(c => c.id === p.categoryId);
+          const isSaved = saved[p.id];
+          const isOver  = dragOver.current === p.id;
+          return (
+            <div key={p.id}
+              draggable
+              onDragStart={e => onDragStart(e, p.id)}
+              onDragOver={e  => onDragOver(e,  p.id)}
+              onDrop={e      => onDrop(e,       p.id)}
+              onDragEnd={()  => { dragId.current = null; dragOver.current = null; }}
+              style={{
+                background:"#fff", border:`1px solid ${isOver ? "#111" : "#ebebeb"}`,
+                borderRadius:12, boxShadow:"0 2px 8px rgba(0,0,0,0.04)",
+                padding:"9px 11px", display:"flex", alignItems:"center", gap:9,
+                transition:"border-color .15s, box-shadow .15s",
+                cursor:"default",
+              }}>
+              {/* drag handle */}
+              <div style={{cursor:"grab",color:"#ccc",flexShrink:0,padding:"0 2px",userSelect:"none",fontSize:16,lineHeight:1}}>
+                ⠿
+              </div>
+              {/* thumbnail */}
+              <div style={{width:40,height:40,borderRadius:10,overflow:"hidden",background:"#f5f5f5",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                {p.img
+                  ? <img src={p.img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  : <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{opacity:0.25}}><path d="M20.54 5.23l-1.39-1.68C18.88 3.21 18.47 3 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23C3.17 5.57 3 6.02 3 6.5V19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6.5c0-.48-.17-.93-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>}
+              </div>
+              {/* name + meta */}
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.name}</div>
+                <div style={{fontSize:10,color:"#bbb"}}>{cat?.name||"—"} · база: {p.basePrice} ₽</div>
+              </div>
+              {/* price field */}
+              <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+                <div style={{fontSize:10,color:"#aaa"}}>Цена ₽</div>
+                <div style={{display:"flex",alignItems:"center",border:"1.5px solid #e0e0e0",borderRadius:8,overflow:"hidden"}}>
+                  <button onClick={()=>update(p.id,"price",Math.max(0,(row.price||0)-10))}
+                    style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>−</button>
+                  <input value={row.price??""} onChange={e=>update(p.id,"price",Number(e.target.value))} type="number"
+                    style={{width:52,textAlign:"center",padding:"4px 2px",border:"none",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                  <button onClick={()=>update(p.id,"price",(row.price||0)+10)}
+                    style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>+</button>
+                </div>
+              </div>
+              {/* stock field */}
+              <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+                <div style={{fontSize:10,color:"#aaa"}}>Остаток</div>
+                <div style={{display:"flex",alignItems:"center",border:"1.5px solid #e0e0e0",borderRadius:8,overflow:"hidden"}}>
+                  <button onClick={()=>update(p.id,"stock",Math.max(0,(row.stock||0)-1))}
+                    style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>−</button>
+                  <input value={row.stock??""} onChange={e=>update(p.id,"stock",Number(e.target.value))} type="number"
+                    style={{width:40,textAlign:"center",padding:"4px 2px",border:"none",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                  <button onClick={()=>update(p.id,"stock",(row.stock||0)+1)}
+                    style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>+</button>
+                </div>
+              </div>
+              {/* hide checkbox */}
+              <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+                <div style={{fontSize:10,color:"#aaa"}}>Скрыть</div>
+                <input type="checkbox" checked={row.hidden||false} onChange={e=>update(p.id,"hidden",e.target.checked)}
+                  style={{width:15,height:15,accentColor:"#111",cursor:"pointer"}}/>
+              </div>
+              {/* autosave indicator */}
+              <div style={{width:22,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+                {isSaved && <span style={{color:"#16a34a",fontSize:16,fontWeight:700}}>✓</span>}
+              </div>
+            </div>
+          );
+        })}
+        {sorted.length===0&&<div style={{color:"#ccc",textAlign:"center",padding:"30px 0",fontSize:13}}>Нет товаров</div>}
       </div>
     </div>
   );
