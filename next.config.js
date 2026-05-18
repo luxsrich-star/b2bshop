@@ -9,16 +9,10 @@ const securityHeaders = [
 
 const nextConfig = {
   reactStrictMode: false,
-  images: {
-    domains: ["res.cloudinary.com"],
-  },
+  generateBuildId: () => `build-${Date.now()}`,
+  images: { domains: ["res.cloudinary.com"] },
   async headers() {
-    return [
-      {
-        source: "/(.*)",
-        headers: securityHeaders,
-      },
-    ];
+    return [{ source: "/(.*)", headers: securityHeaders }];
   },
 };
 
