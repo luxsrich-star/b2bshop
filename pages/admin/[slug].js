@@ -301,24 +301,22 @@ export default function SellerPanel() {
                       <Btn onClick={addOwnProd} style={{justifyContent:"center"}}>{I.plus} Добавить товар</Btn>
                     </div>
                   </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    {data.ownCatalog.products.map(p=>{
-                      const cat=data.ownCatalog.categories.find(c=>c.id===p.categoryId);
-                      return(
-                        <div key={p.id} style={{...cardStyle,padding:"9px 11px",display:"flex",alignItems:"center",gap:8}}>
-                          <label style={{width:42,height:42,borderRadius:10,overflow:"hidden",background:"#f5f5f5",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",border:"1.5px dashed #e0e0e0"}}>
-                            {p.img?<img src={p.img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:I.box}
-                            <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>{const r=new FileReader();r.onload=ev=>updateOwnProdImg(p.id,ev.target.result);r.readAsDataURL(e.target.files[0]);}}/>
-                          </label>
-                          <div style={{flex:1,minWidth:0}}>
-                            <EditableField value={p.name} onSave={name=>renameOwnProd(p.id,name)} style={{fontSize:12,fontWeight:600}}/>
-                            <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{p.price} ₽ · {p.stock} шт · {cat?.name||"—"}</div>
-                          </div>
-                          <Btn variant="danger" onClick={()=>deleteOwnProd(p.id)} style={{padding:"5px 8px",borderRadius:8}}>{I.trash}</Btn>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <OwnProductsList
+                    products={data.ownCatalog.products}
+                    categories={data.ownCatalog.categories}
+                    onDelete={deleteOwnProd}
+                    onRename={renameOwnProd}
+                    onUpdateImg={updateOwnProdImg}
+                    onSavePriceStock={async (id, price, stock) => {
+                      await fetch(`/api/admin/shop-data?slug=${slug}&action=updateOwnProduct&id=${id}`, {
+                        method:"PUT", headers:{"Content-Type":"application/json"},
+                        body: JSON.stringify({price, stock})
+                      });
+                      loadData();
+                    }}
+                    cardStyle={cardStyle}
+                    I={I}
+                  />
                 </div>
               </div>
             )}
@@ -562,6 +560,123 @@ function PricesTab({products, categories, prices, onSave}) {
         })}
         {sorted.length===0&&<div style={{color:"#ccc",textAlign:"center",padding:"30px 0",fontSize:13}}>Нет товаров</div>}
       </div>
+    </div>
+  );
+}
+
+// ── OwnProductsList: drag + +/- + autosave ───────────────────────────────────
+function OwnProductsList({products, categories, onDelete, onRename, onUpdateImg, onSavePriceStock, cardStyle, I}) {
+  const [order, setOrder] = useState(() => products.map(p => p.id));
+  const [rows,  setRows]  = useState(() =>
+    products.reduce((acc, p) => { acc[p.id] = {price: p.price||0, stock: p.stock||0}; return acc; }, {})
+  );
+  const [saved,  setSaved]  = useState({});
+  const timers              = useRef({});
+  const dragId              = useRef(null);
+  const dragOver            = useRef(null);
+
+  useEffect(() => {
+    setOrder(products.map(p => p.id));
+    setRows(products.reduce((acc, p) => { acc[p.id] = {price: p.price||0, stock: p.stock||0}; return acc; }, {}));
+  }, [products.length]);
+
+  function autoSave(id, newRow) {
+    clearTimeout(timers.current[id]);
+    timers.current[id] = setTimeout(async () => {
+      await onSavePriceStock(id, newRow.price, newRow.stock);
+      setSaved(s => ({...s, [id]: true}));
+      setTimeout(() => setSaved(s => ({...s, [id]: false})), 1400);
+    }, 800);
+  }
+
+  function update(id, field, value) {
+    const newRow = {...(rows[id]||{}), [field]: Math.max(0, Number(value))};
+    setRows(r => ({...r, [id]: newRow}));
+    autoSave(id, newRow);
+  }
+
+  function onDragStart(e, id) { dragId.current = id; e.dataTransfer.effectAllowed = "move"; }
+  function onDragOver(e, id)  { e.preventDefault(); dragOver.current = id; }
+  function onDrop(e, id) {
+    e.preventDefault();
+    if (!dragId.current || dragId.current === id) return;
+    const from = order.indexOf(dragId.current);
+    const to   = order.indexOf(id);
+    const next = [...order];
+    next.splice(from, 1);
+    next.splice(to, 0, dragId.current);
+    setOrder(next);
+    dragId.current = null; dragOver.current = null;
+  }
+
+  const sorted = order.map(id => products.find(p => p.id === id)).filter(Boolean);
+
+  return (
+    <div style={{maxHeight:"calc(100vh - 300px)", overflowY:"auto", display:"flex", flexDirection:"column", gap:6, paddingRight:2}}>
+      <div style={{fontSize:11,color:"#aaa",fontWeight:600,marginBottom:6}}>ТОВАРЫ ({sorted.length}) — перетащи за ⠿ чтобы изменить порядок</div>
+      {sorted.map(p => {
+        const cat   = categories.find(c => c.id === p.categoryId);
+        const row   = rows[p.id] || {};
+        const isOver = dragOver.current === p.id;
+        return (
+          <div key={p.id}
+            draggable
+            onDragStart={e => onDragStart(e, p.id)}
+            onDragOver={e  => onDragOver(e,  p.id)}
+            onDrop={e      => onDrop(e,       p.id)}
+            onDragEnd={()  => { dragId.current = null; dragOver.current = null; }}
+            style={{...cardStyle, padding:"9px 11px", display:"flex", alignItems:"center", gap:8,
+              border:`1px solid ${isOver?"#111":"#ebebeb"}`, transition:"border-color .15s", cursor:"default"}}>
+            {/* drag handle */}
+            <div style={{cursor:"grab",color:"#ccc",flexShrink:0,fontSize:16,lineHeight:1,userSelect:"none",padding:"0 2px"}}>⠿</div>
+            {/* thumbnail */}
+            <label style={{width:40,height:40,borderRadius:10,overflow:"hidden",background:"#f5f5f5",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",border:"1.5px dashed #e0e0e0"}}>
+              {p.img?<img src={p.img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:I.box}
+              <input type="file" accept="image/*" style={{display:"none"}}
+                onChange={e=>{const r=new FileReader();r.onload=ev=>onUpdateImg(p.id,ev.target.result);r.readAsDataURL(e.target.files[0]);}}/>
+            </label>
+            {/* name */}
+            <div style={{flex:1,minWidth:0}}>
+              <EditableField value={p.name} onSave={name=>onRename(p.id,name)} style={{fontSize:12,fontWeight:600}}/>
+              <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{cat?.name||"—"}</div>
+            </div>
+            {/* price +/- */}
+            <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+              <div style={{fontSize:10,color:"#aaa"}}>Цена ₽</div>
+              <div style={{display:"flex",alignItems:"center",border:"1.5px solid #e0e0e0",borderRadius:8,overflow:"hidden"}}>
+                <button onClick={()=>update(p.id,"price",(row.price||0)-10)}
+                  style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>−</button>
+                <input value={row.price??""} onChange={e=>update(p.id,"price",e.target.value)} type="number"
+                  style={{width:52,textAlign:"center",padding:"4px 2px",border:"none",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>update(p.id,"price",(row.price||0)+10)}
+                  style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>+</button>
+              </div>
+            </div>
+            {/* stock +/- */}
+            <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+              <div style={{fontSize:10,color:"#aaa"}}>Остаток</div>
+              <div style={{display:"flex",alignItems:"center",border:"1.5px solid #e0e0e0",borderRadius:8,overflow:"hidden"}}>
+                <button onClick={()=>update(p.id,"stock",(row.stock||0)-1)}
+                  style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>−</button>
+                <input value={row.stock??""} onChange={e=>update(p.id,"stock",e.target.value)} type="number"
+                  style={{width:40,textAlign:"center",padding:"4px 2px",border:"none",fontSize:12,outline:"none",fontFamily:"inherit"}}/>
+                <button onClick={()=>update(p.id,"stock",(row.stock||0)+1)}
+                  style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>+</button>
+              </div>
+            </div>
+            {/* saved indicator */}
+            <div style={{width:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+              {saved[p.id] && <span style={{color:"#16a34a",fontSize:16,fontWeight:700}}>✓</span>}
+            </div>
+            {/* delete */}
+            <button onClick={()=>onDelete(p.id)}
+              style={{background:"none",border:"1.5px solid #fcc",borderRadius:8,padding:"5px 8px",cursor:"pointer",color:"#d00",display:"flex",flexShrink:0}}>
+              {I.trash}
+            </button>
+          </div>
+        );
+      })}
+      {sorted.length===0&&<div style={{color:"#ccc",textAlign:"center",padding:"20px 0",fontSize:12}}>Нет товаров</div>}
     </div>
   );
 }
