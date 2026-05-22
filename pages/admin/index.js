@@ -60,7 +60,7 @@ export default function SuperAdmin() {
   const [tab,setTab]           = useState("shops");
   const [catalog,setCatalog]   = useState({categories:[],products:[]});
   const [newCat,setNewCat]     = useState({name:"",parentId:""});
-  const [newProd,setNewProd]   = useState({name:"",basePrice:"",stock:"",categoryId:"",img:null});
+  const [newProd,setNewProd]   = useState({name:"",basePrice:"",cost:"",stock:"",categoryId:"",img:null});
 
   useEffect(()=>{
     if(sessionStorage.getItem("superauth")==="1"){setAuthed(true);load();}
@@ -267,6 +267,7 @@ export default function SuperAdmin() {
                       {I.trash}
                     </Btn>
                   </div>
+                  <BotConfig slug={shop.slug}/>
                 </div>
               ))}
               {shops.length===0&&<div style={{color:"#ccc",textAlign:"center",padding:"40px 0",fontSize:13}}>Нет магазинов. Создай первый выше.</div>}
@@ -308,7 +309,8 @@ export default function SuperAdmin() {
                   </label>
                   <input value={newProd.name} onChange={e=>setNewProd(p=>({...p,name:e.target.value}))} placeholder="Название товара" style={inpStyle}/>
                   <div style={{display:"flex",gap:6}}>
-                    <input value={newProd.basePrice} onChange={e=>setNewProd(p=>({...p,basePrice:e.target.value}))} placeholder="Базовая цена ₽" type="number" style={inpStyle}/>
+                    <input value={newProd.basePrice} onChange={e=>setNewProd(p=>({...p,basePrice:e.target.value}))} placeholder="Цена ₽" type="number" style={inpStyle}/>
+                    <input value={newProd.cost||""} onChange={e=>setNewProd(p=>({...p,cost:e.target.value}))} placeholder="Себест. ₽" type="number" style={inpStyle}/>
                     <input value={newProd.stock} onChange={e=>setNewProd(p=>({...p,stock:e.target.value}))} placeholder="Остаток" type="number" style={inpStyle}/>
                   </div>
                   <select value={newProd.categoryId} onChange={e=>setNewProd(p=>({...p,categoryId:e.target.value}))}
@@ -351,6 +353,120 @@ export default function SuperAdmin() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── BotConfig: telegram bot access per shop ───────────────────────────────────
+function BotConfig({ slug }) {
+  const [cfg, setCfg]       = useState(null);
+  const [open, setOpen]     = useState(false);
+  const [copied, setCopied] = useState("");
+
+  useEffect(() => {
+    if (open && !cfg) load();
+  }, [open]);
+
+  async function load() {
+    const r = await fetch(`/api/admin/shop-config?slug=${slug}`);
+    setCfg(await r.json());
+  }
+
+  async function action(act) {
+    const r = await fetch(`/api/admin/shop-config?slug=${slug}&action=${act}`, { method:"POST" });
+    setCfg(await r.json());
+  }
+
+  function copy(text, key) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(key);
+      setTimeout(() => setCopied(""), 1500);
+    });
+  }
+
+  const bot = cfg?.telegramBot || {};
+  const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+  return (
+    <div style={{ borderTop:"1px solid #f0f0f0", marginTop:10, paddingTop:10 }}>
+      <button onClick={()=>setOpen(o=>!o)}
+        style={{ background:"none", border:"none", cursor:"pointer", fontSize:11, color:"#888", display:"flex", alignItems:"center", gap:5, fontFamily:"inherit", padding:0 }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+        Telegram-бот (бухгалтерия) {open ? "▲" : "▼"}
+      </button>
+
+      {open && cfg && (
+        <div style={{ marginTop:10, background:"#f9f9f9", borderRadius:10, padding:12, display:"flex", flexDirection:"column", gap:8 }}>
+          {/* toggle */}
+          <label style={{ display:"flex", alignItems:"center", gap:8, cursor:"pointer", fontSize:12 }}>
+            <input type="checkbox" checked={bot.enabled||false}
+              onChange={e => action(e.target.checked ? "enable" : "disable")}
+              style={{ width:15, height:15, accentColor:"#111", cursor:"pointer" }}/>
+            <span style={{ fontWeight:600 }}>Доступ к Telegram-боту</span>
+          </label>
+
+          {bot.enabled && (
+            <>
+              {/* codes */}
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+                <div style={{ background:"#fff", border:"1px solid #e5e5e5", borderRadius:8, padding:"8px 10px" }}>
+                  <div style={{ fontSize:10, color:"#aaa", marginBottom:3 }}>КОД ДОСТУПА</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+                    <span style={{ fontSize:14, fontWeight:700, letterSpacing:2 }}>{bot.accessCode||"—"}</span>
+                    <button onClick={()=>copy(bot.accessCode,"access")}
+                      style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color: copied==="access"?"#16a34a":"#aaa", fontFamily:"inherit" }}>
+                      {copied==="access"?"✓ скопировано":"копировать"}
+                    </button>
+                  </div>
+                </div>
+                <div style={{ background:"#fff", border:"1px solid #e5e5e5", borderRadius:8, padding:"8px 10px" }}>
+                  <div style={{ fontSize:10, color:"#aaa", marginBottom:3 }}>КОД ПОДТВЕРЖДЕНИЯ</div>
+                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+                    <span style={{ fontSize:14, fontWeight:700, letterSpacing:2 }}>{bot.verifyCode||"—"}</span>
+                    <button onClick={()=>copy(bot.verifyCode,"verify")}
+                      style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:copied==="verify"?"#16a34a":"#aaa", fontFamily:"inherit" }}>
+                      {copied==="verify"?"✓ скопировано":"копировать"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* telegram id status */}
+              <div style={{ fontSize:11, color: bot.telegramId ? "#16a34a" : "#aaa" }}>
+                {bot.telegramId
+                  ? `✓ Привязан Telegram ID: ${bot.telegramId}`
+                  : "Ожидает привязки — отправь коды в бота"}
+              </div>
+
+              {/* api url */}
+              <div style={{ background:"#fff", border:"1px solid #e5e5e5", borderRadius:8, padding:"8px 10px" }}>
+                <div style={{ fontSize:10, color:"#aaa", marginBottom:3 }}>API URL ДЛЯ БОТА</div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:6 }}>
+                  <code style={{ fontSize:10, color:"#555", wordBreak:"break-all" }}>{baseUrl}/api/admin/update-stock</code>
+                  <button onClick={()=>copy(`${baseUrl}/api/admin/update-stock`,"url")}
+                    style={{ background:"none", border:"none", cursor:"pointer", fontSize:10, color:copied==="url"?"#16a34a":"#aaa", fontFamily:"inherit", flexShrink:0 }}>
+                    {copied==="url"?"✓":"копировать"}
+                  </button>
+                </div>
+              </div>
+
+              {/* buttons */}
+              <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                <button onClick={()=>action("regenerate")}
+                  style={{ background:"none", border:"1.5px solid #e0e0e0", borderRadius:8, padding:"6px 10px", fontSize:11, cursor:"pointer", fontFamily:"inherit" }}>
+                  🔄 Новые коды
+                </button>
+                {bot.telegramId && (
+                  <button onClick={()=>{ if(confirm("Сбросить привязку и сгенерировать новые коды?")) action("reset"); }}
+                    style={{ background:"none", border:"1.5px solid #fcc", borderRadius:8, padding:"6px 10px", fontSize:11, cursor:"pointer", color:"#d00", fontFamily:"inherit" }}>
+                    ✕ Сбросить доступ
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

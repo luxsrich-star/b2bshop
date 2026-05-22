@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     }
     if (action === "addProduct") {
       const imgUrl = await saveBase64Image(req.body.img);
-      const prod = { id: uuid(), categoryId: req.body.categoryId, name: req.body.name, basePrice: Number(req.body.basePrice), img: imgUrl, hidden: false, stock: Number(req.body.stock) || 0 };
+      const prod = { id: uuid(), categoryId: req.body.categoryId, name: req.body.name, basePrice: Number(req.body.basePrice), cost: Number(req.body.cost)||0, img: imgUrl, hidden: false, stock: Number(req.body.stock) || 0 };
       catalog.products.push(prod);
       saveCatalog(catalog);
       return res.json(prod);
