@@ -65,7 +65,7 @@ export default function handler(req, res) {
   // Текущий остаток: приоритет — prices, потом product.stock
   const prices = getShopPrices(shopSlug);
   const ov = prices[product.id] || {};
-  const currentStock = ov.stock !== undefined ? ov.stock : (product.stock || 0);
+  const currentStock = product.stock || 0;
 
   // Новый остаток
   let newStock;
