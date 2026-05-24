@@ -58,7 +58,7 @@ export default function SellerPanel() {
   const [receiptOrder,setReceiptOrder]=useState(null);
   const [settingsForm,setSettingsForm]=useState(null);
   const [newCat,setNewCat]=useState({name:"",parentId:""});
-  const [newProd,setNewProd]=useState({name:"",price:"",stock:"",categoryId:"",img:null});
+  const [newProd,setNewProd]=useState({name:"",price:"",cost:"",stock:"",categoryId:"",img:null});
   const logoRef=useRef(null);
 
   useEffect(()=>{
@@ -86,8 +86,8 @@ export default function SellerPanel() {
     setSaving(false);loadData();
   }
 
-  async function savePrice(productId,price,stock,hidden){
-    await fetch(`/api/admin/shop-data?slug=${slug}&action=savePrice`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,price,stock,hidden})});
+  async function savePrice(productId,price,cost,stock,hidden){
+    await fetch(`/api/admin/shop-data?slug=${slug}&action=savePrice`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({productId,price,cost,stock,hidden})});
     loadData();
   }
 
@@ -118,7 +118,7 @@ export default function SellerPanel() {
   async function addOwnProd(){
     if(!newProd.name||!newProd.price||!newProd.categoryId)return;
     await fetch(`/api/admin/shop-data?slug=${slug}&action=addOwnProduct`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(newProd)});
-    setNewProd(p=>({...p,name:"",price:"",stock:"",img:null}));loadData();
+    setNewProd(p=>({...p,name:"",price:"",cost:"",stock:"",img:null}));loadData();
   }
   async function deleteOwnProd(id){
     if(!confirm("Удалить товар?"))return;
@@ -292,6 +292,7 @@ export default function SellerPanel() {
                       <input value={newProd.name} onChange={e=>setNewProd(p=>({...p,name:e.target.value}))} placeholder="Название" style={inpStyle}/>
                       <div style={{display:"flex",gap:6}}>
                         <input value={newProd.price} onChange={e=>setNewProd(p=>({...p,price:e.target.value}))} placeholder="Цена" type="number" style={inpStyle}/>
+                        <input value={newProd.cost} onChange={e=>setNewProd(p=>({...p,cost:e.target.value}))} placeholder="Себест-ть" type="number" style={inpStyle}/>
                         <input value={newProd.stock} onChange={e=>setNewProd(p=>({...p,stock:e.target.value}))} placeholder="Остаток" type="number" style={inpStyle}/>
                       </div>
                       <select value={newProd.categoryId} onChange={e=>setNewProd(p=>({...p,categoryId:e.target.value}))} style={{...inpStyle,color:newProd.categoryId?"#111":"#aaa"}}>
@@ -307,10 +308,10 @@ export default function SellerPanel() {
                     onDelete={deleteOwnProd}
                     onRename={renameOwnProd}
                     onUpdateImg={updateOwnProdImg}
-                    onSavePriceStock={async (id, price, stock) => {
+                    onSavePriceStock={async (id, price, cost, stock) => {
                       await fetch(`/api/admin/shop-data?slug=${slug}&action=updateOwnProduct&id=${id}`, {
                         method:"PUT", headers:{"Content-Type":"application/json"},
-                        body: JSON.stringify({price, stock})
+                        body: JSON.stringify({price, cost, stock})
                       });
                       loadData();
                     }}
@@ -422,6 +423,7 @@ function PricesTab({products, categories, prices, onSave}) {
       const ov = prices[p.id] || {};
       acc[p.id] = {
         price:  ov.price  !== undefined ? ov.price  : p.basePrice,
+        cost:   ov.cost   !== undefined ? ov.cost   : (p.cost || 0),
         stock:  ov.stock  !== undefined ? ov.stock  : (p.stock || 0),
         hidden: ov.hidden !== undefined ? ov.hidden : false,
       };
@@ -440,6 +442,7 @@ function PricesTab({products, categories, prices, onSave}) {
       const ov = prices[p.id] || {};
       acc[p.id] = {
         price:  ov.price  !== undefined ? ov.price  : p.basePrice,
+        cost:   ov.cost   !== undefined ? ov.cost   : (p.cost || 0),
         stock:  ov.stock  !== undefined ? ov.stock  : (p.stock || 0),
         hidden: ov.hidden !== undefined ? ov.hidden : false,
       };
@@ -450,7 +453,7 @@ function PricesTab({products, categories, prices, onSave}) {
   function autoSave(id, newRow) {
     clearTimeout(timers.current[id]);
     timers.current[id] = setTimeout(async () => {
-      await onSave(id, newRow.price, newRow.stock, newRow.hidden);
+      await onSave(id, newRow.price, newRow.cost, newRow.stock, newRow.hidden);
       setSaved(s => ({...s, [id]: true}));
       setTimeout(() => setSaved(s => ({...s, [id]: false})), 1400);
     }, 800);
@@ -532,6 +535,12 @@ function PricesTab({products, categories, prices, onSave}) {
                   <button onClick={()=>update(p.id,"price",(row.price||0)+10)}
                     style={{background:"#f5f5f5",border:"none",cursor:"pointer",padding:"4px 6px",fontSize:13,color:"#555",lineHeight:1}}>+</button>
                 </div>
+              </div>
+              {/* cost field */}
+              <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+                <div style={{fontSize:10,color:"#aaa"}}>Себест ₽</div>
+                <input value={row.cost??""} onChange={e=>update(p.id,"cost",Number(e.target.value))} type="number"
+                  style={{width:52,textAlign:"center",padding:"5px 4px",border:"1.5px solid #e0e0e0",borderRadius:8,fontSize:12,outline:"none",fontFamily:"inherit"}}/>
               </div>
               {/* stock field */}
               <div style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
