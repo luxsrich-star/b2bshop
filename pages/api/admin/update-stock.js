@@ -1,107 +1,135 @@
-import { getShops, getShopPrices, saveShopPrices, getShopSettings, getCatalog, getShopCatalog, saveShopCatalog } from "@/lib/db";
-import { rateLimit, getIP } from "@/lib/security";
+import { getShops, getShopSettings, saveShopSettings, getShopPrices, saveShopPrices, getShopOrders, saveShopOrders, getShopCatalog, saveShopCatalog, getCatalog, saveBase64Image } from "@/lib/db";
+import { v4 as uuid } from "uuid";
 
-export const config = { api: { bodyParser: true } };
+export const config = { api: { bodyParser: { sizeLimit: "8mb" } } };
 
-export default function handler(req, res) {
-  if (req.method !== "POST") return res.status(405).end();
+function shopExists(slug) { return !!getShops().find(s => s.slug === slug); }
 
-  const limit = rateLimit(getIP(req) + ":update-stock", 60, 60_000);
-  if (!limit.ok) return res.status(429).json({ success: false, error: "rate_limit" });
+export default async function handler(req, res) {
+  const { slug, action, id } = req.query;
+  if (!shopExists(slug)) return res.status(404).json({ error: "Магазин не найден" });
 
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-  const { shopSlug, productName, productId, quantityChange, stock: exactStock } = body || {};
-
-  if (!shopSlug) return res.json({ success: false, error: "missing_slug" });
-
-  const shops = getShops();
-  if (!shops.find(s => s.slug === shopSlug))
-    return res.json({ success: false, error: "shop_not_found" });
-
-  const settings = getShopSettings(shopSlug);
-  const useShared = settings.useSharedCatalog;
-
-  const ownCatalog    = getShopCatalog(shopSlug);
-  const sharedProducts = getCatalog().products;
-  const ownProducts    = ownCatalog.products;
-
-  // При useSharedCatalog=false ищем сначала в own, потом в shared
-  const allProducts = useShared
-    ? [...sharedProducts, ...ownProducts]
-    : [...ownProducts, ...sharedProducts];
-
-  let product = null;
-  let isOwn = false; // товар из собственного каталога?
-
-  // 1. По productId
-  if (productId) {
-    product = allProducts.find(p => p.id === productId);
+  if (req.method === "GET") {
+    return res.json({ settings: getShopSettings(slug), prices: getShopPrices(slug), orders: getShopOrders(slug), sharedCatalog: getCatalog(), ownCatalog: getShopCatalog(slug) });
   }
 
-  // 2. По имени (включение, без учёта регистра)
-  if (!product && productName) {
-    const name = productName.toLowerCase().trim();
-    product = allProducts.find(p => p.name.toLowerCase().includes(name))
-           || allProducts.find(p => name.includes(p.name.toLowerCase()));
+  if (req.method === "POST" && action === "saveSettings") {
+    const current = getShopSettings(slug);
+    let logoImg = current.logoImg;
+    if (req.body.logoImg === null) logoImg = null;
+    else if (req.body.logoImg?.startsWith("data:")) logoImg = await saveBase64Image(req.body.logoImg);
+    const updated = { ...current, ...req.body, logoImg };
+    saveShopSettings(slug, updated);
+    return res.json(updated);
   }
 
-  if (!product) {
-    return res.json({
-      success: false,
-      error: "product_not_found",
-      debug: {
-        shopSlug,
-        productName,
-        useSharedCatalog: useShared,
-        totalProducts: allProducts.length,
-        productNames: allProducts.map(p => p.name),
-      }
-    });
-  }
+  // ── savePrice: теперь сохраняет и cost ──────────────────────────────────
+  if (req.method === "POST" && action === "savePrice") {
+    const prices = getShopPrices(slug);
+    const { productId, price, cost, stock, hidden } = req.body;
+    if (!prices[productId]) prices[productId] = {};
+    if (price  !== undefined) prices[productId].price  = Number(price);
+    if (cost   !== undefined) prices[productId].cost   = Number(cost);   // ← ДОБАВЛЕНО
+    if (stock  !== undefined) prices[productId].stock  = Number(stock);
+    if (hidden !== undefined) prices[productId].hidden = Boolean(hidden);
+    saveShopPrices(slug, prices);
 
-  // Определяем — товар из собственного каталога или общего
-  isOwn = ownProducts.some(p => p.id === product.id);
-
-  // Текущий остаток: приоритет — prices, потом product.stock
-  const prices = getShopPrices(shopSlug);
-  const ov = prices[product.id] || {};
-  const currentStock = product.stock || 0;
-
-  // Новый остаток
-  let newStock;
-  if (exactStock !== undefined && exactStock !== null) {
-    newStock = Math.max(0, Number(exactStock));
-  } else if (quantityChange !== undefined && quantityChange !== null) {
-    newStock = Math.max(0, currentStock + Number(quantityChange));
-  } else {
-    return res.json({ success: false, error: "provide quantityChange or stock" });
-  }
-
-  // 1. Всегда сохраняем в prices (работает для обоих типов каталога)
-  prices[product.id] = { ...ov, stock: newStock, hidden: newStock <= 0 };
-  saveShopPrices(shopSlug, prices);
-
-  // 2. Если товар из собственного каталога — обновляем stock прямо в нём
-  //    чтобы find-product и витрина читали актуальное значение
-  if (isOwn) {
-    const idx = ownCatalog.products.findIndex(p => p.id === product.id);
+    // Если это товар из собственного каталога — обновляем cost и там тоже
+    const ownCatalog = getShopCatalog(slug);
+    const idx = ownCatalog.products.findIndex(p => p.id === productId);
     if (idx !== -1) {
-      ownCatalog.products[idx] = {
-        ...ownCatalog.products[idx],
-        stock: newStock,
-        hidden: newStock <= 0,
-      };
-      saveShopCatalog(shopSlug, ownCatalog);
+      if (price !== undefined) ownCatalog.products[idx].price     = Number(price);
+      if (price !== undefined) ownCatalog.products[idx].basePrice = Number(price);
+      if (cost  !== undefined) ownCatalog.products[idx].cost      = Number(cost); // ← ДОБАВЛЕНО
+      if (stock !== undefined) ownCatalog.products[idx].stock     = Number(stock);
+      saveShopCatalog(slug, ownCatalog);
     }
+
+    return res.json({ ok: true });
   }
 
-  return res.json({
-    success:       true,
-    productId:     product.id,
-    productName:   product.name,
-    shopSlug,
-    previousStock: currentStock,
-    newStock,
-    hidden:        newStock <= 0,
-  });
+  // ── own catalog ──────────────────────────────────────────────────────────
+  if (req.method === "POST" && action === "addOwnCategory") {
+    const cat = getShopCatalog(slug);
+    const newCat = { id: uuid(), name: req.body.name, parentId: req.body.parentId || null };
+    cat.categories.push(newCat); saveShopCatalog(slug, cat);
+    return res.json(newCat);
+  }
+  if (req.method === "PUT" && action === "updateOwnCategory") {
+    const cat = getShopCatalog(slug);
+    const idx = cat.categories.findIndex(c => c.id === id);
+    if (idx === -1) return res.status(404).end();
+    cat.categories[idx] = { ...cat.categories[idx], ...req.body };
+    saveShopCatalog(slug, cat);
+    return res.json(cat.categories[idx]);
+  }
+  if (req.method === "DELETE" && action === "deleteOwnCategory") {
+    const cat = getShopCatalog(slug);
+    const toDelete = []; const q = [id];
+    while (q.length) { const cid = q.shift(); toDelete.push(cid); cat.categories.filter(c => c.parentId === cid).forEach(c => q.push(c.id)); }
+    cat.categories = cat.categories.filter(c => !toDelete.includes(c.id));
+    cat.products   = cat.products.filter(p => !toDelete.includes(p.categoryId));
+    saveShopCatalog(slug, cat); return res.json({ deleted: toDelete });
+  }
+
+  // addOwnProduct: теперь сохраняет cost ────────────────────────────────────
+  if (req.method === "POST" && action === "addOwnProduct") {
+    const cat = getShopCatalog(slug);
+    const imgUrl = await saveBase64Image(req.body.img);
+    const prod = {
+      id:         uuid(),
+      categoryId: req.body.categoryId,
+      name:       req.body.name,
+      price:      Number(req.body.price),
+      basePrice:  Number(req.body.price),
+      cost:       Number(req.body.cost) || 0,   // ← ДОБАВЛЕНО
+      stock:      Number(req.body.stock) || 0,
+      img:        imgUrl,
+      hidden:     false,
+    };
+    cat.products.push(prod); saveShopCatalog(slug, cat);
+    return res.json(prod);
+  }
+
+  // updateOwnProduct: ...req.body уже содержит cost если фронт его передаёт
+  if (req.method === "PUT" && action === "updateOwnProduct") {
+    const cat = getShopCatalog(slug);
+    const idx = cat.products.findIndex(p => p.id === id);
+    if (idx === -1) return res.status(404).end();
+    let imgUrl = cat.products[idx].img;
+    if (req.body.img === null) imgUrl = null;
+    else if (req.body.img?.startsWith("data:")) imgUrl = await saveBase64Image(req.body.img);
+    cat.products[idx] = { ...cat.products[idx], ...req.body, img: imgUrl };
+    // cost из req.body попадёт автоматически через spread ↑
+    saveShopCatalog(slug, cat); return res.json(cat.products[idx]);
+  }
+
+  if (req.method === "DELETE" && action === "deleteOwnProduct") {
+    const cat = getShopCatalog(slug);
+    cat.products = cat.products.filter(p => p.id !== id);
+    saveShopCatalog(slug, cat); return res.json({ ok: true });
+  }
+
+  // ── orders ───────────────────────────────────────────────────────────────
+  if (req.method === "POST" && action === "createOrder") {
+    const orders = getShopOrders(slug);
+    const oid = orders.length > 0 ? Math.max(...orders.map(o => o.id)) + 1 : 1;
+    const order = { id: oid, date: new Date().toLocaleString("ru"), client: req.body.client, tg: (req.body.tg||"").replace(/^@/,""), comment: req.body.comment||"", items: req.body.items, total: req.body.total, status: "Новый" };
+    orders.unshift(order); saveShopOrders(slug, orders);
+    return res.json(order);
+  }
+  if (req.method === "PUT" && action === "updateOrder") {
+    const orders = getShopOrders(slug);
+    const idx = orders.findIndex(o => o.id === Number(req.body.id));
+    if (idx === -1) return res.status(404).end();
+    orders[idx] = { ...orders[idx], ...req.body };
+    saveShopOrders(slug, orders); return res.json(orders[idx]);
+  }
+  if (req.method === "DELETE" && action === "deleteOrder") {
+    let orders = getShopOrders(slug);
+    orders = orders.filter(o => o.id !== Number(id));
+    saveShopOrders(slug, orders); return res.json({ ok: true });
+  }
+
+  res.status(405).end();
 }
