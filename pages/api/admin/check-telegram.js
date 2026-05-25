@@ -10,16 +10,17 @@ export default function handler(req, res) {
   const config = getShopConfig(slug);
   const bot    = config.telegramBot || {};
 
-  if (!bot.enabled)                            return res.json({ success:false, error:"access_disabled" });
+  if (!bot.enabled)                                   return res.json({ success:false, error:"access_disabled" });
   if (String(bot.telegramId) !== String(telegramId)) return res.json({ success:false, error:"not_bound" });
 
   const settings = getShopSettings(slug);
   const baseUrl  = process.env.SITE_URL || "https://b2bshopb2b.up.railway.app";
 
   return res.json({
-    success:    true,
-    shopSlug:   slug,
-    shopName:   settings.name,
-    siteApiUrl: `${baseUrl}/api/admin/update-stock`,
+    success:        true,
+    shopSlug:       slug,
+    shopName:       settings.name,
+    siteApiUrl:     `${baseUrl}/api/admin/update-stock`,
+    spreadsheetId:  bot.spreadsheetId || null,   // ← ДОБАВЛЕНО
   });
 }
