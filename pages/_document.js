@@ -4,9 +4,12 @@ export default function Document() {
   return (
     <Html lang="ru">
       <Head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+        <meta name="theme-color" content="#f5f5f7" id="theme-color-meta"/>
+        <meta name="color-scheme" content="light dark"/>
+        <style dangerouslySetInnerHTML={{__html:`
+          html,body{background-color:#f5f5f7;}
+          html.dark,body.dark{background-color:#111111;}
+        `}}/>
       </Head>
       <body>
         <Main />
