@@ -351,7 +351,7 @@ function HistoryTab({ slug, log, onDeleteEntry, onClearAll }) {
         {log.length===0&&<div style={{color:"var(--text3)",textAlign:"center",padding:"30px 0",fontSize:13}}>История пуста</div>}
         {log.map(entry=>(
           <div key={entry.id} className="log-entry">
-            <div className="log-dot" style={{background:dotColors[entry.dot]||"var(--text3)"}}></div>
+            <div className="log-dot" style={{background:dotColors[entry.dot] || "var(--text3)"}}></div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12,color:"var(--text)",fontWeight:500}}>{entry.action}</div>
               {entry.details&&<div style={{fontSize:11,color:"var(--text2)",marginTop:2}}>{entry.details}</div>}
