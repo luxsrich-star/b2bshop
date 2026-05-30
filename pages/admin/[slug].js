@@ -282,16 +282,22 @@ function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg
               }}/>
             </label>
             <div style={{flex:1,minWidth:0}}>
-              <EditableField value={p.name} onSave={name=>onRename(p.id,name)} style={{fontSize:12,fontWeight:600}}/>
-              <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>
-  {cat?.name || "—"}
+  <EditableField
+    value={p.name}
+    onSave={(name)=>onRename(p.id,name)}
+    style={{fontSize:12,fontWeight:600}}
+  />
+
+  <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>
+    {cat?.name || "—"}
+  </div>
+
+  {profit > 0 && (
+    <span className="profit-badge">
+      +{profit}₽
+    </span>
+  )}
 </div>
-             {profit > 0 && (
-  <span className="profit-badge">
-             +{profit}₽
-  </span>
-)}
-            </div>
             {[["Цена",row.price,"price",64,10],["Себест.",row.cost,"cost",58,10],["Остаток",row.stock,"stock",48,1]].map(([label,val,field,w,step])=>(
               <div key={field} style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
                 <div style={{fontSize:10,color:"var(--text3)"}}>{label}</div>
