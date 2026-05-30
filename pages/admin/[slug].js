@@ -172,7 +172,7 @@ function PricesTab({ products, categories, prices, slug, onSave, onSaveOrder }) 
       </div>
       <div style={{maxHeight:"calc(100vh - 240px)",overflowY:"auto",display:"flex",flexDirection:"column",gap:7}}>
         {sorted.map(p=>{
-          const row=rows[p.id]||{};
+          const row = rows[p.id] || {};
           const cat=categories.find(c=>c.id===p.categoryId);
           const profit=(row.price||0)-(row.cost||0);
           return(
@@ -283,8 +283,8 @@ function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg
             </label>
             <div style={{flex:1,minWidth:0}}>
               <EditableField value={p.name} onSave={name=>onRename(p.id,name)} style={{fontSize:12,fontWeight:600}}/>
-              <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{cat?.name||"—"}</div>
-              {profit>0&&<span className="profit-badge">+{profit}₽</span>}
+              <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{cat?.name || "—"}</div>
+             profit>0&&<span className="profit-badge">+{profit}₽</span>}
             </div>
             {[["Цена",row.price,"price",64,10],["Себест.",row.cost,"cost",58,10],["Остаток",row.stock,"stock",48,1]].map(([label,val,field,w,step])=>(
               <div key={field} style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
@@ -311,7 +311,7 @@ function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg
             <div style={{borderTop:"1px solid var(--border)",padding:"10px 11px",background:"var(--surface2)",borderRadius:"0 0 12px 12px"}}>
               <div style={{fontSize:11,color:"var(--text2)",marginBottom:8,fontWeight:600}}>ВАРИАНТЫ ЦЕН</div>
               <MultiPricesEditor
-                value={multiEdits[p.id]||p.multiPrices||[]}
+                value={multiEdits[p.id]  p.multiPrices  []}
                 onChange={mp=>{
                   setMultiEdits(m=>({...m,[p.id]:mp}));
                 }}/>
@@ -358,7 +358,17 @@ function HistoryTab({ slug, log, onDeleteEntry, onClearAll }) {
               <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{entry.date}</div>
             </div>
             <button onClick={()=>onDeleteEntry(entry.id)}
-              style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",flexShrink:0,display:"flex",padding:4}}>
+              style={{
+  background:"none",
+  border:`1.5px solid ${expandedId===p.id ? "var(--accent)" : "var(--border)"}`,
+  borderRadius:8,
+  padding:"5px 8px",
+  cursor:"pointer",
+  color:expandedId===p.id ? "var(--accent)" : "var(--text3)",
+  fontSize:10,
+  fontWeight:600,
+  fontFamily:"inherit"
+}}>
               {I.trash}
             </button>
           </div>
