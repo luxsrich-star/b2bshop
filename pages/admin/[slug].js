@@ -221,39 +221,132 @@ function PricesTab({ products, categories, prices, slug, onSave, onSaveOrder }) 
 }
 
 // ── OwnProductsList ───────────────────────────────────────────────────────────
-<div style={{fontSize:10,color:"var(--text3)"}}>{label}</div>
-                    <input
-                      value={row[field]||0}
-                      onChange={e=>update(p.id,field,e.target.value)}
-                      type="number"
-                      style={{width:w,textAlign:"center"}}
-                    />
-                  </div>
-                ))
-              }
+function OwnProductsList({
+  products,
+  categories,
+  onDelete,
+  onRename,
+  onUpdateImg,
+  onSavePriceStock,
+  onUpdateMultiPrices
+}) {
+  const [order, setOrder] = useState(() =>
+    [...products]
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      .map(p => p.id)
+  );
 
-              <button onClick={()=>setExpandedId(expandedId===p.id?null:p.id)}>
+  const [rows, setRows] = useState(() =>
+    products.reduce((acc, p) => {
+      acc[p.id] = {
+        price: p.price || 0,
+        stock: p.stock || 0,
+        cost: p.cost || 0
+      };
+      return acc;
+    }, {})
+  );
+
+  const [saved, setSaved] = useState({});
+  const [expandedId, setExpandedId] = useState(null);
+  const [multiEdits, setMultiEdits] = useState({});
+  const timers = useRef({});
+  const dragId = useRef(null);
+  const [dragOver, setDragOver] = useState(null);
+
+  function update(id, field, value) {
+    const r = {
+      ...(rows[id] || {}),
+      [field]: Math.max(0, Number(value))
+    };
+
+    setRows(prev => ({ ...prev, [id]: r }));
+
+    clearTimeout(timers.current[id]);
+    timers.current[id] = setTimeout(() => {
+      onSavePriceStock(id, r.price, r.stock, r.cost);
+      setSaved(s => ({ ...s, [id]: true }));
+      setTimeout(() => setSaved(s => ({ ...s, [id]: false })), 1000);
+    }, 500);
+  }
+
+  const sorted = order
+    .map(id => products.find(p => p.id === id))
+    .filter(Boolean);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {sorted.map(p => {
+        const cat = categories.find(c => c.id === p.categoryId);
+        const row = rows[p.id] || {};
+        const profit = (row.price  0) - (row.cost  0);
+
+        return (
+          <div key={p.id} style={{ padding: 10, border: "1px solid var(--border)", borderRadius: 10 }}>
+            
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 600 }}>
+                  {p.name}
+                </div>
+
+                <div style={{ fontSize: 10, color: "var(--text3)" }}>
+                  {cat?.name || "—"}
+                </div>
+
+                {profit > 0 && (
+                  <div style={{ fontSize: 10, color: "#16a34a" }}>
+                    +{profit}₽
+                  </div>
+                )}
+              </div>
+
+              {[
+                ["Цена", "price", 60, 10],
+                ["Себест.", "cost", 60, 10],
+                ["Остаток", "stock", 50, 1]
+              ].map(([label, field, w, step]) => (
+                <div key={field} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 10 }}>{label}</div>
+
+                  <input
+                    value={row[field] ?? 0}
+                    type="number"
+                    onChange={e => update(p.id, field, e.target.value)}
+                    style={{ width: w }}
+                  />
+                </div>
+              ))}
+
+              <button onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}>
                 ₽±
               </button>
 
-              <button onClick={()=>onDelete(p.id)}>
-                {I.trash}
-              </button>
-
-              {saved[p.id] && <span>✓</span>}
+              <button onClick={() => onDelete(p.id)}>🗑</button>
             </div>
 
-            {expandedId===p.id && (
-              <div style={{padding:10,background:"var(--surface2)"}}>
+            {expandedId === p.id && (
+              <div style={{ marginTop: 10 }}>
                 <MultiPricesEditor
-                  value={multiEdits[p.id] ?? p.multiPrices ?? []}
-                  onChange={mp=>setMultiEdits(m=>({...m,[p.id]:mp}))}
+                  value={
+                    multiEdits[p.id] ??
+                    p.multiPrices ??
+                    []
+                  }
+                  onChange={mp =>
+                    setMultiEdits(m => ({ ...m, [p.id]: mp }))
+                  }
                 />
 
                 <button
-                  onClick={async()=>{
-                    const mp = multiEdits[p.id] ?? p.multiPrices ?? [];
-                    await onUpdateMultiPrices(p.id,mp);
+                  onClick={() => {
+                    const mp =
+                      multiEdits[p.id] ??
+                      p.multiPrices ??
+                      [];
+
+                    onUpdateMultiPrices(p.id, mp);
                     setExpandedId(null);
                   }}
                 >
@@ -261,6 +354,7 @@ function PricesTab({ products, categories, prices, slug, onSave, onSaveOrder }) 
                 </button>
               </div>
             )}
+
           </div>
         );
       })}
