@@ -259,76 +259,226 @@ function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg
 
   const sorted=order.map(id=>products.find(p=>p.id===id)).filter(Boolean);
 
-  return(
-    <div style={{maxHeight:"calc(100vh-300px)",overflowY:"auto",display:"flex",flexDirection:"column",gap:6}}>
-      <div style={{fontSize:11,color:"var(--text3)",fontWeight:600,marginBottom:6}}>
-        ТОВАРЫ ({sorted.length}) — перетащи ⠿ чтобы изменить порядок
-      </div>
-      {sorted.map(p=>{
-        const cat=categories.find(c=>c.id===p.categoryId);
-        const row=rows[p.id]||{};
-        const profit=(row.price||0)-(row.cost||0);
-        return(
-          <div key={p.id} draggable
-            onDragStart={e=>onDragStart(e,p.id)} onDragOver={e=>onDragOver(e,p.id)}
-            onDrop={e=>onDrop(e,p.id)} onDragEnd={()=>{dragId.current=null;setDragOver(null);}}
-            style={{background:"var(--surface)",border:`1.5px solid ${dragOver===p.id?"var(--accent)":"var(--border)"}`,borderRadius:12,padding:"9px 11px",display:"flex",alignItems:"center",gap:8,transition:"border-color .15s"}}>
-            <div style={{cursor:"grab",flexShrink:0}}>{I.drag}</div>
-            <label style={{width:40,height:40,borderRadius:10,overflow:"hidden",background:"var(--surface2)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",border:"1.5px dashed var(--border)"}}>
-              {p.img?<img src={p.img} style={{width:"100%",height:"100%",objectFit:"cover"}}/>:I.box}
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
-                const compressed=await compressImage(e.target.files[0]);
-                onUpdateImg(p.id,compressed);
-              }}/>
-            </label>
-            <div style={{flex:1,minWidth:0}}>
-              <EditableField value={p.name} onSave={name=>onRename(p.id,name)} style={{fontSize:12,fontWeight:600}}/>
-              <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>{cat?.name||"—"}</div>
-              {profit>0&&<span className="profit-badge">+{profit}₽</span>}
-            </div>
-            {[["Цена",row.price,"price",64,10],["Себест.",row.cost,"cost",58,10],["Остаток",row.stock,"stock",48,1]].map(([label,val,field,w,step])=>(
-              <div key={field} style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
-                <div style={{fontSize:10,color:"var(--text3)"}}>{label}</div>
-                <div style={{display:"flex",alignItems:"center",border:"1.5px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
-                  <button onClick={()=>update(p.id,field,(val||0)-step)} style={{background:"var(--surface2)",border:"none",cursor:"pointer",padding:"4px 5px",fontSize:13,color:"var(--text2)",lineHeight:1}}>−</button>
-                  <input value={val??""} onChange={e=>update(p.id,field,e.target.value)} type="number"
-                    style={{width:w,textAlign:"center",padding:"4px 2px",border:"none",fontSize:12,outline:"none",fontFamily:"inherit",background:"var(--surface)",color:"var(--text)",borderRadius:0}}/>
-                  <button onClick={()=>update(p.id,field,(val||0)+step)} style={{background:"var(--surface2)",border:"none",cursor:"pointer",padding:"4px 5px",fontSize:13,color:"var(--text2)",lineHeight:1}}>+</button>
-                </div>
-              </div>
-            ))}
-            <div style={{width:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
-              {saved[p.id]&&<span style={{color:"#16a34a",fontSize:16,fontWeight:700}}>✓</span>}
-            </div>
-            <button onClick={()=>setExpandedId(expandedId===p.id?null:p.id)}
-              style={{background:"none",border:`1.5px solid ${expandedId===p.id?"var(--accent)":"var(--border)"}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:expandedId===p.id?"var(--accent)":"var(--text3)",fontSize:10,fontWeight:600,fontFamily:"inherit"}}>
-              ₽±
-            </button>
-            <button className="btn-danger" onClick={()=>onDelete(p.id)} style={{padding:"5px 8px",borderRadius:8}}>{I.trash}</button>
-          </div>
-          {/* multiprices inline editor */}
-          {expandedId===p.id&&(
-            <div style={{borderTop:"1px solid var(--border)",padding:"10px 11px",background:"var(--surface2)",borderRadius:"0 0 12px 12px"}}>
-              <div style={{fontSize:11,color:"var(--text2)",marginBottom:8,fontWeight:600}}>ВАРИАНТЫ ЦЕН</div>
-              <MultiPricesEditor
-                value={multiEdits[p.id]||p.multiPrices||[]}
-                onChange={mp=>setMultiEdits(m=>({...m,[p.id]:mp}))}/>
-              <button className="btn-primary" onClick={async()=>{
-                const mp=multiEdits[p.id]??p.multiPrices??[];
-                await onUpdateMultiPrices(p.id,mp);
-                setExpandedId(null);
-              }} style={{justifyContent:"center",marginTop:10,width:"100%",fontSize:11}}>
-                {I.check} Сохранить варианты цен
-              </button>
-            </div>
-          )}
+  return (
+  <div key={p.id}>
+    <div
+      draggable
+      onDragStart={e=>onDragStart(e,p.id)}
+      onDragOver={e=>onDragOver(e,p.id)}
+      onDrop={e=>onDrop(e,p.id)}
+      onDragEnd={()=>{
+        dragId.current=null;
+        setDragOver(null);
+      }}
+      style={{
+        background:"var(--surface)",
+        border:`1.5px solid ${dragOver===p.id?"var(--accent)":"var(--border)"}`,
+        borderRadius:12,
+        padding:"9px 11px",
+        display:"flex",
+        alignItems:"center",
+        gap:8,
+        transition:"border-color .15s"
+      }}
+    >
+
+      <div style={{cursor:"grab",flexShrink:0}}>{I.drag}</div>
+
+      <label
+        style={{
+          width:40,
+          height:40,
+          borderRadius:10,
+          overflow:"hidden",
+          background:"var(--surface2)",
+          flexShrink:0,
+          display:"flex",
+          alignItems:"center",
+          justifyContent:"center",
+          cursor:"pointer",
+          border:"1.5px dashed var(--border)"
+        }}
+      >
+        {p.img
+          ? <img src={p.img} style={{width:"100%",height:"100%",objectFit:"cover"}} />
+          : I.box}
+
+        <input
+          type="file"
+          accept="image/*"
+          style={{display:"none"}}
+          onChange={async e=>{
+            const compressed=await compressImage(e.target.files[0]);
+            onUpdateImg(p.id,compressed);
+          }}
+        />
+      </label>
+
+      <div style={{flex:1,minWidth:0}}>
+        <EditableField
+          value={p.name}
+          onSave={name=>onRename(p.id,name)}
+          style={{fontSize:12,fontWeight:600}}
+        />
+
+        <div style={{fontSize:10,color:"var(--text3)",marginTop:2}}>
+          {cat?.name||"—"}
         </div>
-      );
-      })}
-      {sorted.length===0&&<div style={{color:"var(--text3)",textAlign:"center",padding:"20px 0",fontSize:12}}>Нет товаров</div>}
+
+        {profit>0 && (
+          <span className="profit-badge">
+            +{profit}₽
+          </span>
+        )}
+      </div>
+
+      {[["Цена",row.price,"price",64,10],["Себест.",row.cost,"cost",58,10],["Остаток",row.stock,"stock",48,1]].map(([label,val,field,w,step])=>(
+        <div key={field} style={{display:"flex",flexDirection:"column",gap:2,alignItems:"center"}}>
+          <div style={{fontSize:10,color:"var(--text3)"}}>
+            {label}
+          </div>
+
+          <div style={{display:"flex",alignItems:"center",border:"1.5px solid var(--border)",borderRadius:8,overflow:"hidden"}}>
+            <button
+              onClick={()=>update(p.id,field,(val||0)-step)}
+              style={{
+                background:"var(--surface2)",
+                border:"none",
+                cursor:"pointer",
+                padding:"4px 5px",
+                fontSize:13,
+                color:"var(--text2)",
+                lineHeight:1
+              }}
+            >
+              −
+            </button>
+
+            <input
+              value={val??""}
+              onChange={e=>update(p.id,field,e.target.value)}
+              type="number"
+              style={{
+                width:w,
+                textAlign:"center",
+                padding:"4px 2px",
+                border:"none",
+                fontSize:12,
+                outline:"none",
+                fontFamily:"inherit",
+                background:"var(--surface)",
+                color:"var(--text)",
+                borderRadius:0
+              }}
+            />
+
+            <button
+              onClick={()=>update(p.id,field,(val||0)+step)}
+              style={{
+                background:"var(--surface2)",
+                border:"none",
+                cursor:"pointer",
+                padding:"4px 5px",
+                fontSize:13,
+                color:"var(--text2)",
+                lineHeight:1
+              }}
+            >
+              +
+            </button>
+          </div>
+        </div>
+      ))}
+
+      <div style={{width:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+        {saved[p.id] && (
+          <span style={{color:"#16a34a",fontSize:16,fontWeight:700}}>
+            ✓
+          </span>
+        )}
+      </div>
+
+      <button
+        onClick={()=>setExpandedId(expandedId===p.id?null:p.id)}
+        style={{
+          background:"none",
+          border:`1.5px solid ${expandedId===p.id?"var(--accent)":"var(--border)"}`,
+          borderRadius:8,
+          padding:"5px 8px",
+          cursor:"pointer",
+          color:expandedId===p.id?"var(--accent)":"var(--text3)",
+          fontSize:10,
+          fontWeight:600,
+          fontFamily:"inherit"
+        }}
+      >
+        ₽±
+      </button>
+
+      <button
+        className="btn-danger"
+        onClick={()=>onDelete(p.id)}
+        style={{padding:"5px 8px",borderRadius:8}}
+      >
+        {I.trash}
+      </button>
     </div>
-  );
-}
+
+    {expandedId===p.id && (
+      <div
+        style={{
+          borderTop:"1px solid var(--border)",
+          padding:"10px 11px",
+          background:"var(--surface2)",
+          borderRadius:"0 0 12px 12px"
+        }}
+      >
+        <div
+          style={{
+            fontSize:11,
+            color:"var(--text2)",
+            marginBottom:8,
+            fontWeight:600
+          }}
+        >
+          ВАРИАНТЫ ЦЕН
+        </div>
+
+        <MultiPricesEditor
+          value={multiEdits[p.id]  p.multiPrices  []}
+          onChange={mp=>
+            setMultiEdits(m=>({
+              ...m,
+              [p.id]:mp
+            }))
+          }
+        />
+
+        <button
+          className="btn-primary"
+          onClick={async()=>{
+            const mp =
+              multiEdits[p.id] ??
+              p.multiPrices ??
+              [];
+
+            await onUpdateMultiPrices(p.id, mp);
+            setExpandedId(null);
+          }}
+          style={{
+            justifyContent:"center",
+            marginTop:10,
+            width:"100%",
+            fontSize:11
+          }}
+        >
+          {I.check} Сохранить варианты цен
+        </button>
+      </div>
+    )}
+  </div>
+);
+})}
 
 // ── HistoryTab ────────────────────────────────────────────────────────────────
 function HistoryTab({ slug, log, onDeleteEntry, onClearAll }) {
