@@ -20,23 +20,53 @@ const I = {
 };
 
 // ── dark mode ──────────────────────────────────────────────────────────────────
+function applyTheme(dark) {
+  const root = document.documentElement;
+  if (dark) {
+    root.style.setProperty("--bg",       "#111111");
+    root.style.setProperty("--surface",  "#1e1e1e");
+    root.style.setProperty("--surface2", "#252525");
+    root.style.setProperty("--border",   "#333333");
+    root.style.setProperty("--text",     "#eeeeee");
+    root.style.setProperty("--text2",    "#999999");
+    root.style.setProperty("--text3",    "#555555");
+    root.style.setProperty("--accent",   "#eeeeee");
+    root.style.setProperty("--accent-t", "#111111");
+    root.style.setProperty("--shadow",   "rgba(0,0,0,0.45)");
+    root.classList.add("dark");
+    document.body.classList.add("dark");
+    document.body.style.background = "#111111";
+  } else {
+    root.style.setProperty("--bg",       "#f5f5f7");
+    root.style.setProperty("--surface",  "#ffffff");
+    root.style.setProperty("--surface2", "#f0f0f2");
+    root.style.setProperty("--border",   "#e8e8e8");
+    root.style.setProperty("--text",     "#111111");
+    root.style.setProperty("--text2",    "#555555");
+    root.style.setProperty("--text3",    "#aaaaaa");
+    root.style.setProperty("--accent",   "#111111");
+    root.style.setProperty("--accent-t", "#ffffff");
+    root.style.setProperty("--shadow",   "rgba(0,0,0,0.07)");
+    root.classList.remove("dark");
+    document.body.classList.remove("dark");
+    document.body.style.background = "#f5f5f7";
+  }
+  const m = document.querySelector('meta[name="theme-color"]');
+  if (m) m.setAttribute("content", dark ? "#111111" : "#f5f5f7");
+}
+
 function useDark() {
   const [dark, setDark] = useState(false);
   useEffect(() => {
-    const saved = localStorage.getItem("theme");
-    const d = saved === "dark";
+    const d = localStorage.getItem("theme") === "dark";
     setDark(d);
-    document.documentElement.classList.toggle("dark", d);
-    document.body.classList.toggle("dark", d);
+    applyTheme(d);
   }, []);
   function toggle() {
     const next = !dark;
     setDark(next);
     localStorage.setItem("theme", next ? "dark" : "light");
-    document.documentElement.classList.toggle("dark", next);
-    document.body.classList.toggle("dark", next);
-    const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", next ? "#111111" : "#f5f5f7");
+    applyTheme(next);
   }
   return { dark, toggle };
 }
@@ -191,10 +221,12 @@ function PricesTab({ products, categories, prices, slug, onSave, onSaveOrder }) 
 }
 
 // ── OwnProductsList ───────────────────────────────────────────────────────────
-function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg, onSavePriceStock }) {
+function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg, onSavePriceStock, onUpdateMultiPrices }) {
   const [order, setOrder]   = useState(()=>[...products].sort((a,b)=>(a.order??999)-(b.order??999)).map(p=>p.id));
   const [rows, setRows]     = useState(()=>products.reduce((acc,p)=>{acc[p.id]={price:p.price||0,stock:p.stock||0,cost:p.cost||0};return acc;},{}));
   const [saved, setSaved]   = useState({});
+  const [expandedId,setExpandedId]=useState(null);
+  const [multiEdits,setMultiEdits]=useState({});
   const timers              = useRef({});
   const dragId              = useRef(null);
   const [dragOver,setDragOver]=useState(null);
@@ -268,8 +300,31 @@ function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg
             <div style={{width:20,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
               {saved[p.id]&&<span style={{color:"#16a34a",fontSize:16,fontWeight:700}}>✓</span>}
             </div>
+            <button onClick={()=>setExpandedId(expandedId===p.id?null:p.id)}
+              style={{background:"none",border:`1.5px solid ${expandedId===p.id?"var(--accent)":"var(--border)"}`,borderRadius:8,padding:"5px 8px",cursor:"pointer",color:expandedId===p.id?"var(--accent)":"var(--text3)",fontSize:10,fontWeight:600,fontFamily:"inherit"}}>
+              ₽±
+            </button>
             <button className="btn-danger" onClick={()=>onDelete(p.id)} style={{padding:"5px 8px",borderRadius:8}}>{I.trash}</button>
           </div>
+          {/* multiprices inline editor */}
+          {expandedId===p.id&&(
+            <div style={{borderTop:"1px solid var(--border)",padding:"10px 11px",background:"var(--surface2)",borderRadius:"0 0 12px 12px"}}>
+              <div style={{fontSize:11,color:"var(--text2)",marginBottom:8,fontWeight:600}}>ВАРИАНТЫ ЦЕН</div>
+              <MultiPricesEditor
+                value={multiEdits[p.id]||p.multiPrices||[]}
+                onChange={mp=>{
+                  setMultiEdits(m=>({...m,[p.id]:mp}));
+                }}/>
+              <button className="btn-primary" onClick={async()=>{
+                const mp=multiEdits[p.id]??p.multiPrices??[];
+                await onUpdateMultiPrices(p.id,mp);
+                setExpandedId(null);
+              }} style={{justifyContent:"center",marginTop:10,width:"100%",fontSize:11}}>
+                {I.check} Сохранить варианты цен
+              </button>
+            </div>
+          )}
+        </div>
         );
       })}
       {sorted.length===0&&<div style={{color:"var(--text3)",textAlign:"center",padding:"20px 0",fontSize:12}}>Нет товаров</div>}
@@ -329,7 +384,7 @@ export default function SellerPanel() {
   const [receiptOrder, setReceiptOrder] = useState(null);
   const [settingsForm, setSettingsForm] = useState(null);
   const [newCat,setNewCat]      = useState({name:"",parentId:""});
-  const [newProd,setNewProd]    = useState({name:"",price:"",stock:"",cost:"",categoryId:"",img:null});
+  const [newProd,setNewProd]    = useState({name:"",price:"",stock:"",cost:"",categoryId:"",img:null,multiPrices:[],useMultiPrices:false});
   const [imgUploading,setImgUploading] = useState(false);
   const [imgProgress,setImgProgress]  = useState(0);
   const logoRef = useRef(null);
@@ -571,6 +626,17 @@ export default function SellerPanel() {
                         <option value="">— Категория —</option>
                         {ownLeafCats.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
+                      {/* multiprices toggle */}
+                      <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer",fontSize:12,color:"var(--text2)"}}>
+                        <input type="checkbox" checked={newProd.useMultiPrices||false} onChange={e=>setNewProd(p=>({...p,useMultiPrices:e.target.checked,multiPrices:[]}))} style={{width:14,height:14,accentColor:"var(--accent)",cursor:"pointer"}}/>
+                        Мультицены (несколько вариантов цены)
+                      </label>
+                      {newProd.useMultiPrices&&(
+                        <div>
+                          <div style={{fontSize:11,color:"var(--text2)",marginBottom:6}}>Варианты цен (клиент выберет при добавлении в корзину):</div>
+                          <MultiPricesEditor value={newProd.multiPrices||[]} onChange={mp=>setNewProd(p=>({...p,multiPrices:mp}))}/>
+                        </div>
+                      )}
                       <button className="btn-primary" onClick={addOwnProd} disabled={imgUploading} style={{justifyContent:"center"}}>
                         {imgUploading?<><span className="spinner"/>Загружаем...</>:<>{I.plus} Добавить товар</>}
                       </button>
@@ -583,6 +649,13 @@ export default function SellerPanel() {
                     onRename={renameOwnProd}
                     onUpdateImg={updateOwnProdImg}
                     onSavePriceStock={saveOwnPriceStock}
+                    onUpdateMultiPrices={async(id,mp)=>{
+                      await fetch(`/api/admin/shop-data?slug=${slug}&action=updateOwnProduct&id=${id}`,{
+                        method:"PUT",headers:{"Content-Type":"application/json"},
+                        body:JSON.stringify({multiPrices:mp})
+                      });
+                      loadData();
+                    }}
                   />
                 </div>
               </div>
@@ -691,6 +764,50 @@ export default function SellerPanel() {
         )}
       </div>
       {receiptOrder&&<ReceiptModal order={receiptOrder} shopName={settings.name} onClose={()=>setReceiptOrder(null)}/>}
+    </div>
+  );
+}
+
+// ── MultiPricesEditor — компонент редактирования мультицен ────────────────────
+function MultiPricesEditor({ value = [], onChange }) {
+  function add() {
+    onChange([...value, { name: "", price: "", minOrder: "" }]);
+  }
+  function remove(i) {
+    onChange(value.filter((_, j) => j !== i));
+  }
+  function update(i, field, val) {
+    onChange(value.map((mp, j) => j === i ? { ...mp, [field]: val } : mp));
+  }
+
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+      {value.map((mp, i) => (
+        <div key={i} style={{ display:"flex", gap:6, alignItems:"center", background:"var(--surface2)", borderRadius:10, padding:"8px 10px" }}>
+          <div style={{ flex:2 }}>
+            <div style={{ fontSize:10, color:"var(--text3)", marginBottom:3 }}>Название</div>
+            <input value={mp.name} onChange={e=>update(i,"name",e.target.value)} placeholder="Опт от 5 000₽"
+              style={{ fontSize:11, padding:"5px 8px", borderRadius:8, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontFamily:"inherit", outline:"none", width:"100%" }}/>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:10, color:"var(--text3)", marginBottom:3 }}>Цена ₽</div>
+            <input value={mp.price} onChange={e=>update(i,"price",e.target.value)} placeholder="350" type="number"
+              style={{ fontSize:11, padding:"5px 8px", borderRadius:8, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontFamily:"inherit", outline:"none", width:"100%", textAlign:"center" }}/>
+          </div>
+          <div style={{ flex:1 }}>
+            <div style={{ fontSize:10, color:"var(--text3)", marginBottom:3 }}>От ₽</div>
+            <input value={mp.minOrder||""} onChange={e=>update(i,"minOrder",e.target.value)} placeholder="5000" type="number"
+              style={{ fontSize:11, padding:"5px 8px", borderRadius:8, border:"1.5px solid var(--border)", background:"var(--surface)", color:"var(--text)", fontFamily:"inherit", outline:"none", width:"100%", textAlign:"center" }}/>
+          </div>
+          <button onClick={()=>remove(i)}
+            style={{ background:"none", border:"1.5px solid #fca5a5", borderRadius:8, padding:"5px 8px", cursor:"pointer", color:"#dc2626", flexShrink:0, marginTop:14 }}>
+            ✕
+          </button>
+        </div>
+      ))}
+      <button onClick={add} className="btn-ghost" style={{ fontSize:11, justifyContent:"center" }}>
+        + Добавить вариант цены
+      </button>
     </div>
   );
 }
