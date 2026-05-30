@@ -445,7 +445,7 @@ function OwnProductsList({ products, categories, onDelete, onRename, onUpdateImg
         </div>
 
         <MultiPricesEditor
-          value={multiEdits[p.id]  p.multiPrices  []}
+          value={multiEdits[p.id] ?? p.multiPrices ?? []}
           onChange={mp=>
             setMultiEdits(m=>({
               ...m,
